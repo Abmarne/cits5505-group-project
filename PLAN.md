@@ -19,22 +19,19 @@ Key value propositions (from the live front-end):
 
 ## 2. User Stories
 
+
 | # | As a… | I want to… | So that… |
 |---|--------|------------|----------|
-| 1 | UWA student | browse all available units filtered by semester (S1 / S2 / Summer) | I can see what's on offer before I commit to anything |
+| 1 | UWA student | browse all available units filtered by semester | I can see what's on offer before I commit to anything |
 | 2 | UWA student | search units by code, name, or faculty | I can quickly find a specific unit without scrolling the whole catalogue |
-| 3 | UWA student | add a unit to my selection with one click | I can build my semester basket without leaving the browse page |
+| 3 | UWA student | add a unit to my selection with one click | I can build my semester basket quickly and intuitively |
 | 4 | UWA student | see an instant warning when two of my units clash in time | I know about conflicts before I head to enrolment |
-| 5 | UWA student | swap between alternative lab/tutorial times for a unit | I can resolve clashes without dropping the unit entirely |
-| 6 | UWA student | use the Auto-schedule button with preferences (avoid 8am, free Fridays, compact days) | I get a suggested conflict-free timetable without manually trying every combination |
-| 7 | UWA student | generate a shareable link to my timetable | I can send it to friends so we can coordinate overlapping units |
-| 8 | UWA student | export my final timetable as a PNG image | I have an offline copy to reference during orientation week |
-| 9 | UWA student | create an account and log in with my @student.uwa.edu.au email | my saved timetables persist across devices and sessions |
-| 10 | UWA student | save multiple named timetables (e.g. "Plan A", "Plan B") | I can compare different unit combinations before making a final decision |
-| 11 | UWA student | view a shared timetable link sent by a classmate without needing to log in | I can check if our schedules overlap without creating an account |
-| 12 | UWA student | manually add a unit code that is not yet in the database | I'm not blocked if a new unit hasn't been scraped yet |
-
----
+| 5 | UWA student | swap between alternative lab/tutorial times for a unit | I can manually resolve clashes without dropping the unit entirely |
+| 6 | UWA student | use the Auto-schedule button with preferences (avoid 8am, free Fridays) | I get a suggested conflict-free timetable without manually trying every combination |
+| 7 | UWA student | add custom time blocks for personal commitments (work, study) | the auto-scheduler generates options that respect my entire real-life schedule |
+| 8 | UWA student | get AI-powered suggestions for alternative units when I have an unresolvable clash | I can easily swap in a new unit that fits my schedule without starting from scratch |
+| 9 | UWA student | save multiple named timetables (e.g., "Plan A", "Plan B") | I can compare different unit combinations before making a final decision |
+| 10 | UWA student | export my final timetable as a PNG image | I have an offline, portable copy to reference during my week |
 
 ## 3. Main Pages
 
