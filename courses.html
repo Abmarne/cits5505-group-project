@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Browse Units — UWA Planner</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=Instrument+Sans:ital,wght@0,300;0,400;0,500;1,300&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/global.css">
+  <link rel="stylesheet" href="css/courses.css">
+</head>
+<body>
+
+  <!-- ── Nav ── -->
+  <nav class="nav">
+    <a class="nav-logo" href="index.html">
+      <div class="nav-logo-dot"></div>
+      UWA Planner
+    </a>
+    <div class="nav-links">
+      <a class="nav-link" href="courses.html">Browse Units</a>
+      <a class="nav-link" href="selected.html">
+        My Selection <span class="nav-badge" id="selBadge" style="display:none">0</span>
+      </a>
+      <a class="nav-link" href="schedule.html">Schedule</a>
+    </div>
+    <div class="nav-right" id="navRight">
+      <button class="theme-toggle" id="themeToggle" title="Switch theme" aria-label="Switch theme">☀️</button>
+      <a class="btn" href="auth.html">Log in</a>
+      <a class="btn btn-primary" href="auth.html?tab=signup">Sign up</a>
+    </div>
+  </nav>
+
+  <div class="page-shell page-enter">
+    <div class="page-header">
+      <h1 class="page-title">Browse Units</h1>
+      <p class="page-sub">Search and add units to your semester plan. Click + to add to your selection.</p>
+    </div>
+
+    <div class="courses-grid">
+
+      <!-- ── Left: filter + table ── -->
+      <div>
+        <div class="panel">
+          <!-- Filters -->
+          <div class="filter-bar">
+            <button class="filter-chip on" data-sem="S1">Sem 1</button>
+            <button class="filter-chip on" data-sem="S2">Sem 2</button>
+            <button class="filter-chip" data-sem="SUM">Summer</button>
+            <span style="flex:1"></span>
+            <span style="font-family:var(--mono);font-size:11px;color:var(--text3)" id="tableCount">— units</span>
+          </div>
+
+          <!-- Search -->
+          <div class="search-row">
+            <div class="search-wrap">
+              <svg class="search-icon" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+                <circle cx="6.5" cy="6.5" r="4.5"/><path d="m9.5 9.5 3.5 3.5"/>
+              </svg>
+              <input type="text" id="unitSearch" placeholder="Search by code, name, or faculty…">
+            </div>
+          </div>
+
+          <!-- Table -->
+          <table class="course-table">
+            <thead>
+              <tr>
+                <th>Code</th>
+                <th>Unit name</th>
+                <th>CP</th>
+                <th>Sem</th>
+                <th>Sessions</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="courseTableBody">
+              <tr><td colspan="6" style="text-align:center;padding:32px;color:var(--text3)">Loading units…</td></tr>
+            </tbody>
+          </table>
+
+          <!-- Pagination -->
+          <div class="table-foot">
+            <span class="table-count" id="tableCount">—</span>
+            <div class="pagination" id="pagination"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Right: basket + manual ── -->
+      <div>
+        <!-- Basket -->
+        <div class="panel" style="margin-bottom:14px">
+          <div class="panel-header">
+            <div class="panel-title">My selection</div>
+            <a class="btn btn-sm btn-ghost" href="selected.html">View details →</a>
+          </div>
+          <div id="basketBody">
+            <div class="basket-empty">Add units from the table</div>
+          </div>
+          <div class="basket-footer" id="basketFooter" style="display:none">
+            <div class="cp-bar-top">
+              <span id="cpLabel">0 / 24 cp</span>
+              <span id="cpPercent">0%</span>
+            </div>
+            <div class="cp-bar"><div class="cp-fill" id="cpFill"></div></div>
+            <a class="btn btn-primary btn-full" href="schedule.html">Generate schedule →</a>
+          </div>
+        </div>
+
+        <!-- Manual add -->
+        <div class="panel">
+          <div class="panel-header">
+            <div class="panel-title">Add manually</div>
+          </div>
+          <div class="panel-body">
+            <div class="form-group">
+              <label class="form-label">Unit code</label>
+              <div class="manual-row">
+                <input class="form-input" type="text" id="manualCode" placeholder="e.g. CITS3001" style="text-transform:uppercase">
+                <button class="btn btn-primary" id="addManualBtn">Add</button>
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Semester</label>
+              <div class="sem-selector">
+                <button class="sem-btn on" data-sem="S1">Sem 1</button>
+                <button class="sem-btn" data-sem="S2">Sem 2</button>
+                <button class="sem-btn" data-sem="SUM">Summer</button>
+              </div>
+            </div>
+            <p class="hint-text">Can't find your unit? Add it manually and we'll try to fetch its timetable from UWA when connected to the backend.</p>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <div id="toast-container"></div>
+  <!-- Utility modules (load order matters) -->
+  <script src="js/utils/theme.js"></script>
+  <script src="js/utils/state.js"></script>
+  <script src="js/utils/api.js"></script>
+  <script src="js/utils/schedule-utils.js"></script>
+  <script src="js/utils/toast.js"></script>
+  <script src="js/utils/nav.js"></script>
+  <script src="js/courses.js"></script>
+</body>
+</html>
