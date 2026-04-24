@@ -2,21 +2,20 @@
    courses.js — Course Input / Browse page
 ═══════════════════════════════════════════ */
 
-import State from './utils/state.js';
 import API from './utils/api.js';
 import toast from './utils/toast.js';
 import { DAYS, getColor, getTotalCp } from './utils/schedule-utils.js';
 import { updateNavBadge } from './utils/nav.js';
 import './utils/components.js';
 
-let allCourses  = [];
-let activeSems  = ['S1', 'S2'];
-let tablePage   = 0;
-let manualSem   = 'S1';
+let allCourses = [];
+let selected   = [];   // [{ code, altIdx }] — local copy, synced to API
+let activeSems = ['S1', 'S2'];
+let tablePage  = 0;
 const PAGE_SIZE = 8;
 
 document.addEventListener('DOMContentLoaded', async () => {
-  await loadCourses();
+  await Promise.all([loadCourses(), loadTimetable()]);
   bindFilters();
   bindSearch();
   bindManualAdd();
@@ -31,6 +30,25 @@ async function loadCourses() {
   } catch (err) {
     console.error(err);
     toast('Could not load unit data', 'error');
+  }
+}
+
+async function loadTimetable() {
+  try {
+    const tt = await API.getTimetable();
+    selected = tt.selected || [];
+    updateNavBadge(selected.length);
+  } catch (err) {
+    console.error(err);
+  }
+}
+
+async function saveSelected() {
+  try {
+    await API.saveTimetable({ selected });
+    updateNavBadge(selected.length);
+  } catch (err) {
+    toast('Could not save selection', 'error');
   }
 }
 
@@ -94,7 +112,7 @@ const TYPE_TAG_CLS = {
 const TAG_BASE = 'inline-flex items-center px-[7px] py-[2px] rounded-md text-[10px] font-mono border';
 
 function buildTableRow(c) {
-  const isAdded = State.hasCourse(c.code);
+  const isAdded = selected.some(x => x.code === c.code);
   const tags    = c.sessions.map(s => {
     const cls = TYPE_TAG_CLS[s.type.toLowerCase()] || 'border-[var(--border2)] text-[var(--text2)] bg-[var(--bg3)]';
     return `<span class="${TAG_BASE} ${cls}">${s.type} ${DAYS[s.day].slice(0, 3)}</span>`;
@@ -138,24 +156,23 @@ function renderPagination(total) {
 }
 
 /* ── Toggle course in/out of selection ───── */
-function toggleCourse(code) {
-  if (State.hasCourse(code)) {
-    State.removeCourse(code);
+async function toggleCourse(code) {
+  if (selected.some(x => x.code === code)) {
+    selected = selected.filter(x => x.code !== code);
     toast(`${code} removed`);
   } else {
-    State.addCourse(code);
+    selected = [...selected, { code, altIdx: 0 }];
     toast(`${code} added`, 'success');
   }
-  updateNavBadge();
+  await saveSelected();
   renderTable();
   renderBasket();
 }
 
 /* ── Basket (right sidebar) ──────────────── */
 function renderBasket() {
-  const { selected } = State.get();
-  const body         = document.getElementById('basketBody');
-  const footer       = document.getElementById('basketFooter');
+  const body   = document.getElementById('basketBody');
+  const footer = document.getElementById('basketFooter');
   if (!body) return;
 
   if (!selected.length) {
@@ -169,8 +186,8 @@ function renderBasket() {
   const cp  = getTotalCp(selected, allCourses);
   const pct = Math.min(100, Math.round((cp / 24) * 100));
 
-  document.getElementById('cpLabel').textContent    = `${cp} / 24 cp`;
-  document.getElementById('cpPercent').textContent  = `${pct}%`;
+  document.getElementById('cpLabel').textContent   = `${cp} / 24 cp`;
+  document.getElementById('cpPercent').textContent = `${pct}%`;
 
   const fill = document.getElementById('cpFill');
   fill.style.width      = pct + '%';
@@ -208,21 +225,20 @@ function bindManualAdd() {
     btn.addEventListener('click', () => {
       document.querySelectorAll('.sem-btn').forEach(b => b.classList.remove('on'));
       btn.classList.add('on');
-      manualSem = btn.dataset.sem;
     });
   });
 }
 
-function addManual() {
+async function addManual() {
   const input = document.getElementById('manualCode');
   const code  = input.value.trim().toUpperCase();
   if (!code) return;
-  if (State.hasCourse(code)) {
+  if (selected.some(x => x.code === code)) {
     toast(`${code} is already in your selection`);
     return;
   }
-  State.addCourse(code);
-  updateNavBadge();
+  selected = [...selected, { code, altIdx: 0 }];
+  await saveSelected();
   renderBasket();
   renderTable();
   toast(`${code} added manually`, 'success');

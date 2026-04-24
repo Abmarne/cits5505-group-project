@@ -2,7 +2,6 @@
    selected.js — My Selection page
 ═══════════════════════════════════════════ */
 
-import State from './utils/state.js';
 import API from './utils/api.js';
 import toast from './utils/toast.js';
 import { DAYS, getColor, getActiveSessions, detectConflicts, getTotalCp, getDaysUsed } from './utils/schedule-utils.js';
@@ -10,20 +9,25 @@ import { updateNavBadge } from './utils/nav.js';
 import './utils/components.js';
 
 let allCourses = [];
+let selected   = [];
 
 document.addEventListener('DOMContentLoaded', async () => {
   try {
-    allCourses = await API.getCourses();
+    [allCourses, { selected }] = await Promise.all([
+      API.getCourses(),
+      API.getTimetable(),
+    ]);
+    selected = selected || [];
   } catch {
-    toast('Could not load unit data', 'error');
+    toast('Could not load data', 'error');
   }
+  updateNavBadge(selected.length);
   renderPage();
 });
 
 /* ── Full page render ────────────────────── */
 function renderPage() {
-  const { selected } = State.get();
-  const conflicts    = detectConflicts(selected, allCourses);
+  const conflicts = detectConflicts(selected, allCourses);
   renderSummaryBar(selected, conflicts);
   renderConflictAlert(conflicts);
   renderGrid(selected, conflicts);
@@ -91,9 +95,10 @@ function renderGrid(selected, conflicts) {
   }).join('');
 
   grid.querySelectorAll('.remove-unit-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      State.removeCourse(btn.dataset.code);
-      updateNavBadge();
+    btn.addEventListener('click', async () => {
+      selected = selected.filter(x => x.code !== btn.dataset.code);
+      await API.saveTimetable({ selected });
+      updateNavBadge(selected.length);
       toast(`${btn.dataset.code} removed`);
       renderPage();
     });

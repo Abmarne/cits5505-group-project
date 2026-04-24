@@ -3,12 +3,13 @@
 ═══════════════════════════════════════════ */
 
 import State from './utils/state.js';
+import API   from './utils/api.js';
 import toast from './utils/toast.js';
 import './utils/components.js';
 
 document.addEventListener('DOMContentLoaded', () => {
   // If already logged in, skip straight to courses
-  if (State.get().user) {
+  if (State.getUser()) {
     window.location.href = 'courses.html';
     return;
   }
@@ -81,13 +82,6 @@ function bindStrengthMeter() {
   });
 }
 
-/* ── Demo accounts (frontend-only testing) ─ */
-const DEMO_ACCOUNTS = [
-  { name: 'Hung Nguyen',   initials: 'HN', email: '21000001@student.uwa.edu.au', studentNumber: '21000001', password: 'demo1234' },
-  { name: 'Alex Smith',    initials: 'AS', email: '21234567@student.uwa.edu.au', studentNumber: '21234567', password: 'demo1234' },
-  { name: 'Jordan Lee',    initials: 'JL', email: '21345678@student.uwa.edu.au', studentNumber: '21345678', password: 'demo1234' },
-];
-
 /* ── Form submission ─────────────────────── */
 function bindForms() {
   document.getElementById('loginBtn')?.addEventListener('click', handleLogin);
@@ -102,50 +96,32 @@ function bindForms() {
   });
 }
 
-function handleLogin() {
+async function handleLogin() {
   const email    = document.getElementById('loginEmail').value.trim();
   const pass     = document.getElementById('loginPass').value;
   const emailErr = document.getElementById('loginEmailErr');
 
-  let valid = true;
-  if (!email.includes('@')) {
-    emailErr.classList.remove('hidden'); valid = false;
-  } else {
-    emailErr.classList.add('hidden');
-  }
-  if (!pass) { toast('Please enter your password', 'error'); valid = false; }
-  if (!valid) return;
+  if (!email.includes('@')) { emailErr.classList.remove('hidden'); return; }
+  emailErr.classList.add('hidden');
+  if (!pass) { toast('Please enter your password', 'error'); return; }
 
-  // Check demo accounts first
-  const demo = DEMO_ACCOUNTS.find(a => a.email === email);
-  if (demo && pass === demo.password) {
-    loginAs(demo);
-    return;
-  }
-
-  // TODO: replace with real API call  POST /api/auth/login
-  const namePart     = email.split('@')[0];
-  const studentMatch = namePart.match(/^(2\d{7})$/);
-  const studentNumber = studentMatch ? studentMatch[1] : '20000000';
-  const name         = demo?.name || namePart;
-  const initials     = name[0].toUpperCase();
-  State.set({ user: { name, initials, email, studentNumber } });
-  toast('Welcome back! 👋', 'success');
-  setTimeout(() => { window.location.href = 'courses.html'; }, 600);
+  const user = await API.login(email, pass);
+  if (!user) { toast('Incorrect email or password', 'error'); return; }
+  loginAs(user);
 }
 
-function handleDemoLogin() {
-  loginAs(DEMO_ACCOUNTS[0]);
+async function handleDemoLogin() {
+  const user = await API.loginDemo();
+  loginAs(user);
 }
 
-function loginAs(account) {
-  const { password: _, ...user } = account;
-  State.set({ user });
+function loginAs(user) {
+  State.setUser(user);
   toast(`Logged in as ${user.name} 👋`, 'success');
   setTimeout(() => { window.location.href = 'courses.html'; }, 500);
 }
 
-function handleSignup() {
+async function handleSignup() {
   const first    = document.getElementById('signFirst').value.trim();
   const stu      = document.getElementById('signStu').value.trim();
   const email    = document.getElementById('signEmail').value.trim();
@@ -155,20 +131,18 @@ function handleSignup() {
   const emailErr = document.getElementById('emailErr');
 
   let valid = true;
-  if (!stu.match(/^2\d{7}$/)) { stuErr.classList.remove('hidden'); valid = false; }
-  else stuErr.classList.add('hidden');
-
-  if (!email.endsWith('@student.uwa.edu.au')) { emailErr.classList.remove('hidden'); valid = false; }
-  else emailErr.classList.add('hidden');
-
-  if (pass.length < 8) { toast('Password must be at least 8 characters', 'error'); valid = false; }
-  if (!agree) { toast('Please agree to the terms of service', 'error'); valid = false; }
+  if (!/^2\d{7}$/.test(stu))                   { stuErr.classList.remove('hidden');   valid = false; } else stuErr.classList.add('hidden');
+  if (!email.endsWith('@student.uwa.edu.au'))   { emailErr.classList.remove('hidden'); valid = false; } else emailErr.classList.add('hidden');
+  if (pass.length < 8)  { toast('Password must be at least 8 characters', 'error'); valid = false; }
+  if (!agree)           { toast('Please agree to the terms of service', 'error');    valid = false; }
   if (!valid) return;
 
-  // TODO: replace with real API call  POST /api/auth/register
-  const name     = (first || 'Student').trim();
-  const initials = name[0].toUpperCase();
-  State.set({ user: { name, initials, email, studentNumber: stu } });
-  toast('Account created! Welcome aboard 🎉', 'success');
-  setTimeout(() => { window.location.href = 'courses.html'; }, 600);
+  try {
+    const user = await API.register({ name: first || 'Student', studentNumber: stu, email, password: pass });
+    State.setUser(user);
+    toast('Account created! Welcome aboard 🎉', 'success');
+    setTimeout(() => { window.location.href = 'courses.html'; }, 600);
+  } catch (err) {
+    toast(err.message, 'error');
+  }
 }

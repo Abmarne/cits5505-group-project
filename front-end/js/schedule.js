@@ -8,18 +8,26 @@ import toast from './utils/toast.js';
 import { DAYS, getColor, getActiveSessions, detectConflicts } from './utils/schedule-utils.js';
 import './utils/components.js';
 
-const SLOT_H  = 52;   // px per 1-hour row
-const START_H = 8;    // grid starts 08:00
-const TOTAL_H = 12;   // rows: 08:00 → 20:00
+const SLOT_H  = 52;
+const START_H = 8;
+const TOTAL_H = 12;
 
 let allCourses       = [];
+let selected         = [];
+let isPublic         = false;
+let timetableName    = '';
 let activeDrawerCode = null;
 
 document.addEventListener('DOMContentLoaded', async () => {
   try {
-    allCourses = await API.getCourses();
+    [allCourses, { selected, isPublic, name: timetableName }] = await Promise.all([
+      API.getCourses(),
+      API.getTimetable(),
+    ]);
+    selected      = selected      || [];
+    timetableName = timetableName || '';
   } catch {
-    toast('Could not load unit data', 'error');
+    toast('Could not load data', 'error');
   }
 
   renderSchedulePage();
@@ -51,7 +59,6 @@ function bindControls() {
 function renderLegend() {
   const el = document.getElementById('legendList');
   if (!el) return;
-  const { selected } = State.get();
   if (!selected.length) {
     el.innerHTML = '<div style="font-size:12px;color:var(--text3)">No units selected</div>';
     return;
@@ -71,7 +78,6 @@ function renderLegend() {
 function renderVariantButtons() {
   const el = document.getElementById('variantList');
   if (!el) return;
-  const { selected } = State.get();
 
   const withAlts = selected.filter(({ code }) => {
     const c = allCourses.find(x => x.code === code);
@@ -101,7 +107,6 @@ function renderStatusBar(conflicts) {
   const text = document.getElementById('statusText');
   if (!bar || !text) return;
 
-  const { selected } = State.get();
   if (!selected.length) { bar.className = 'status-bar'; return; }
 
   if (conflicts.size) {
@@ -118,11 +123,9 @@ function renderGrid() {
   const body = document.getElementById('ttBody');
   if (!body) return;
 
-  const { selected } = State.get();
-  const conflicts    = detectConflicts(selected, allCourses);
+  const conflicts = detectConflicts(selected, allCourses);
   renderStatusBar(conflicts);
 
-  // Build time-label column + empty day cells
   let html = '';
   for (let r = 0; r < TOTAL_H; r++) {
     html += `<div class="tt-time">${START_H + r}:00</div>`;
@@ -134,7 +137,6 @@ function renderGrid() {
 
   if (!selected.length) return;
 
-  // Place class pills inside the correct cells
   selected.forEach(({ code, altIdx }, ci) => {
     const course     = allCourses.find(c => c.code === code);
     if (!course) return;
@@ -172,9 +174,8 @@ function showAltDrawer(code) {
   if (!course) return;
   activeDrawerCode = code;
 
-  const { selected }  = State.get();
-  const entry         = selected.find(s => s.code === code);
-  const alts          = course.alternatives || [];
+  const entry = selected.find(s => s.code === code);
+  const alts  = course.alternatives || [];
 
   const opts = [
     { label: 'Default (original)', idx: 0 },
@@ -202,8 +203,10 @@ function showAltDrawer(code) {
     </div>`;
 
   drawer.querySelectorAll('.alt-chip').forEach(chip => {
-    chip.addEventListener('click', () => {
-      State.setAlt(code, parseInt(chip.dataset.idx));
+    chip.addEventListener('click', async () => {
+      const idx = parseInt(chip.dataset.idx);
+      selected  = selected.map(s => s.code === code ? { ...s, altIdx: idx } : s);
+      await API.saveTimetable({ selected });
       renderSchedulePage();
       drawer.querySelectorAll('.alt-chip').forEach(c => c.classList.remove('chosen'));
       chip.classList.add('chosen');
@@ -223,31 +226,27 @@ function bindPublicToggle() {
   const saveBtn = document.getElementById('saveNameBtn');
   if (!toggle) return;
 
-  const { isPublic, timetableName } = State.get();
   toggle.checked = isPublic;
-  if (nameIn) nameIn.value = timetableName || '';
+  if (nameIn) nameIn.value = timetableName;
   syncPublicUI(isPublic);
 
-  toggle.addEventListener('change', () => {
-    const { user } = State.get();
-    if (!user && toggle.checked) {
+  toggle.addEventListener('change', async () => {
+    if (!State.getUser() && toggle.checked) {
       toggle.checked = false;
       toast('Log in to share your timetable with friends', 'error');
       return;
     }
-    State.setPublic(toggle.checked);
-    syncPublicUI(toggle.checked);
-    toast(
-      toggle.checked ? 'Timetable shared with friends' : 'Timetable set to private',
-      toggle.checked ? 'success' : ''
-    );
+    isPublic = toggle.checked;
+    await API.saveTimetable({ isPublic });
+    syncPublicUI(isPublic);
+    toast(isPublic ? 'Timetable shared with friends' : 'Timetable set to private', isPublic ? 'success' : '');
   });
 
-  saveBtn?.addEventListener('click', () => {
+  saveBtn?.addEventListener('click', async () => {
     const name = nameIn?.value.trim();
     if (!name) return;
-    State.setTimetableName(name);
-    if (State.get().isPublic) State.setPublic(true); // re-publish with new name
+    timetableName = name;
+    await API.saveTimetable({ name, isPublic });
     toast('Timetable name saved', 'success');
   });
 }
@@ -258,21 +257,24 @@ function syncPublicUI(isPublic) {
 }
 
 /* ── Auto-schedule ───────────────────────── */
-function autoSchedule() {
-  const { selected } = State.get();
+async function autoSchedule() {
   if (!selected.length) { toast('Add some units first!'); return; }
 
-  // Simple random selection from alternatives
-  // TODO: replace with smarter conflict-minimising algorithm
-  selected.forEach(({ code }) => {
-    const c = allCourses.find(x => x.code === code);
-    if (c?.alternatives?.length) {
-      State.setAlt(code, Math.floor(Math.random() * (c.alternatives.length + 1)));
-    }
-  });
+  const preferences = {
+    avoid8am:    document.getElementById('prefNo8')?.checked    || false,
+    compactDays: document.getElementById('prefCompact')?.checked || false,
+    freeFridays: document.getElementById('prefFri')?.checked    || false,
+  };
 
-  renderSchedulePage();
-  const drawer = document.getElementById('altDrawer');
-  if (drawer) drawer.style.display = 'none';
-  toast('Schedule generated!', 'success');
+  try {
+    const result = await API.autoSchedule({ selected, preferences });
+    selected     = result.selected;
+    await API.saveTimetable({ selected });
+    renderSchedulePage();
+    const drawer = document.getElementById('altDrawer');
+    if (drawer) drawer.style.display = 'none';
+    toast('Schedule optimised!', 'success');
+  } catch {
+    toast('Auto-schedule failed', 'error');
+  }
 }

@@ -1,18 +1,14 @@
 /* ═══════════════════════════════════════════
    nav.js — Navigation helpers
-   Badge count, user avatar, active link,
-   share modal wiring.
 ═══════════════════════════════════════════ */
 
 import State from './state.js';
-import toast from './toast.js';
 
 /* ── Badge ──────────────────────────────── */
-function updateNavBadge() {
-  const count = State.get().selected.length;
+function updateNavBadge(selCount = 0) {
   document.querySelectorAll('[data-badge="sel"]').forEach(b => {
-    b.textContent   = count;
-    b.style.display = count > 0 ? 'inline-flex' : 'none';
+    b.textContent   = selCount;
+    b.style.display = selCount > 0 ? 'inline-flex' : 'none';
   });
 }
 
@@ -21,7 +17,7 @@ function renderNavUser() {
   const right = document.getElementById('navRight');
   if (!right) return;
 
-  const { user } = State.get();
+  const user = State.getUser();
   if (user) {
     right.innerHTML = `
       <div class="flex items-center gap-2 text-[13px] text-[var(--text2)]">
@@ -30,9 +26,9 @@ function renderNavUser() {
       </div>
       <a href="index.html" class="btn btn-ghost btn-sm" id="logoutBtn">Log out</a>`;
 
-    document.getElementById('logoutBtn')?.addEventListener('click', (e) => {
+    document.getElementById('logoutBtn')?.addEventListener('click', e => {
       e.preventDefault();
-      State.set({ user: null });
+      State.clearUser();
       window.location.href = 'index.html';
     });
   } else {
@@ -40,7 +36,6 @@ function renderNavUser() {
       <a href="auth.html" class="btn btn-sm hidden md:inline-flex">Log in</a>
       <a href="auth.html?tab=signup" class="btn btn-sm btn-primary hidden md:inline-flex">Sign up</a>`;
   }
-
 }
 
 /* ── Active nav link ────────────────────── */
