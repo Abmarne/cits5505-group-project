@@ -129,7 +129,7 @@ function closeSidebar() {
 function renderSidebarFooter() {
   const footer = document.getElementById('sidebarFooter');
   if (!footer) return;
-  const { user } = State.get();
+  const user = State.getUser();
 
   if (user) {
     footer.innerHTML = `
@@ -146,7 +146,7 @@ function renderSidebarFooter() {
       </button>
     `;
     document.getElementById('sidebarLogoutBtn')?.addEventListener('click', () => {
-      State.set({ user: null });
+      State.clearUser();
       closeSidebar();
       window.location.href = 'index.html';
     });

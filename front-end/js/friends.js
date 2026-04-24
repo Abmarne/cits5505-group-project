@@ -6,68 +6,53 @@ import State from './utils/state.js';
 import API from './utils/api.js';
 import toast from './utils/toast.js';
 import { getColor, getActiveSessions } from './utils/schedule-utils.js';
+import { updateNavBadge } from './utils/nav.js';
 import './utils/components.js';
-
-/* ── Mock friend profiles for demo ─────── */
-const MOCK_PROFILES = {
-  '21234567': { id: 1, name: 'Alex Smith',   initials: 'AS', email: '21234567@student.uwa.edu.au', studentNumber: '21234567' },
-  '21345678': { id: 2, name: 'Jordan Lee',   initials: 'JL', email: '21345678@student.uwa.edu.au', studentNumber: '21345678' },
-  '21456789': { id: 3, name: 'Riley Morgan', initials: 'RM', email: '21456789@student.uwa.edu.au', studentNumber: '21456789' },
-  '21567890': { id: 4, name: 'Casey Park',   initials: 'CP', email: '21567890@student.uwa.edu.au', studentNumber: '21567890' },
-};
 
 const SLOT_H  = 52;
 const START_H = 8;
 const TOTAL_H = 12;
 
-let allCourses = [];
+let allCourses      = [];
+let friends         = [];
+let pendingRequests = [];
+let sentRequests    = [];
+let myTimetable     = { selected: [], isPublic: false, name: '' };
 
 document.addEventListener('DOMContentLoaded', async () => {
+  API.seedDemoData();
+
   try {
-    allCourses = await API.getCourses();
+    [allCourses, friends, pendingRequests, sentRequests, myTimetable] = await Promise.all([
+      API.getCourses(),
+      API.getFriends(),
+      API.getPendingRequests(),
+      API.getSentRequests(),
+      API.getTimetable(),
+    ]);
   } catch {
-    toast('Could not load unit data', 'error');
+    toast('Could not load data', 'error');
   }
 
-  seedMockData();
-  State.checkInbox();
-  State.checkAccepted();
-  checkAuth();
+  updateNavBadge(myTimetable.selected?.length || 0);
   renderRequestBadge();
+  checkAuth();
   renderPage();
   bindAddFriend();
   bindModal();
 });
 
-/* ── Seed demo data ─────────────────────── */
-function seedMockData() {
-  // Pre-populate Alex's public timetable so the demo is useful out of the box
-  State.seedMockPublicTimetable('21234567', {
-    timetableName: 'Semester 1 Plan',
-    semester:      'S1',
-    owner:         { name: 'Alex Smith', initials: 'AS', studentNumber: '21234567' },
-    selected:      [
-      { code: 'CITS1001', altIdx: 0 },
-      { code: 'MATH1001', altIdx: 0 },
-    ],
-    updatedAt: new Date().toISOString(),
-  });
-  // Jordan has no public timetable (private by default)
-}
-
 /* ── Auth check ─────────────────────────── */
 function checkAuth() {
-  const { user } = State.get();
-  if (!user) {
+  if (!State.getUser()) {
     document.getElementById('guestBanner')?.classList.remove('hidden');
   }
   updatePrivacyStatus();
 }
 
-/* ── Render request badge in nav + sidebar ── */
+/* ── Request badge in nav ────────────────── */
 function renderRequestBadge() {
-  const { friendRequests } = State.get();
-  const count = friendRequests.length;
+  const count = pendingRequests.length;
   document.querySelectorAll('[data-badge="req"]').forEach(b => {
     b.textContent   = count;
     b.style.display = count > 0 ? 'inline-flex' : 'none';
@@ -83,22 +68,18 @@ function renderPage() {
 
 /* ── Friend requests section ─────────────── */
 function renderRequests() {
-  const { friendRequests } = State.get();
   const section = document.getElementById('requestsSection');
   const list    = document.getElementById('requestsList');
   const count   = document.getElementById('reqCount');
   if (!section || !list) return;
 
-  if (!friendRequests.length) {
-    section.classList.add('hidden');
-    return;
-  }
+  if (!pendingRequests.length) { section.classList.add('hidden'); return; }
 
   section.classList.remove('hidden');
-  if (count) count.textContent = friendRequests.length;
+  if (count) count.textContent = pendingRequests.length;
 
   const avatarCls = 'w-10 h-10 rounded-full bg-[var(--accent-glow)] border border-[var(--accent-line)] flex items-center justify-center font-mono text-[11px] font-medium text-[var(--accent)] flex-shrink-0';
-  list.innerHTML = friendRequests.map(req => `
+  list.innerHTML = pendingRequests.map(req => `
     <div class="bg-[var(--bg2)] border border-[var(--border)] rounded-[var(--r-lg)] p-4 flex items-center gap-3.5">
       <div class="${avatarCls}">${req.initials}</div>
       <div class="flex-1 min-w-0">
@@ -106,24 +87,26 @@ function renderRequests() {
         <div class="text-[11px] text-[var(--text3)] mt-0.5">${req.studentNumber} · wants to be your friend</div>
       </div>
       <div class="flex items-center gap-2 flex-shrink-0">
-        <button class="btn btn-sm btn-primary accept-btn" data-sn="${req.studentNumber}">Accept</button>
+        <button class="btn btn-sm btn-primary accept-btn" data-sn="${req.studentNumber}" data-name="${req.name}">Accept</button>
         <button class="btn btn-sm decline-btn" data-sn="${req.studentNumber}">Decline</button>
       </div>
     </div>`
   ).join('');
 
   list.querySelectorAll('.accept-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      State.acceptFriendRequest(btn.dataset.sn);
-      toast(`${btn.closest('.request-card').querySelector('.friend-name').textContent} added!`, 'success');
+    btn.addEventListener('click', async () => {
+      await API.acceptFriendRequest(btn.dataset.sn);
+      toast(`${btn.dataset.name} added!`, 'success');
+      await reloadSocial();
       renderPage();
       renderRequestBadge();
     });
   });
 
   list.querySelectorAll('.decline-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      State.declineFriendRequest(btn.dataset.sn);
+    btn.addEventListener('click', async () => {
+      await API.declineFriendRequest(btn.dataset.sn);
+      await reloadSocial();
       renderPage();
       renderRequestBadge();
     });
@@ -132,22 +115,18 @@ function renderRequests() {
 
 /* ── Sent requests section ───────────────── */
 function renderSentRequests() {
-  const { sentRequests } = State.get();
   const section = document.getElementById('sentSection');
   const list    = document.getElementById('sentList');
   if (!section || !list) return;
 
-  if (!sentRequests.length) {
-    section.classList.add('hidden');
-    return;
-  }
+  if (!sentRequests.length) { section.classList.add('hidden'); return; }
 
   section.classList.remove('hidden');
   const pendingCls = 'inline-flex items-center gap-1 font-mono text-[10px] px-[7px] py-0.5 rounded-lg bg-[rgba(245,166,35,.1)] border border-[rgba(245,166,35,.3)] text-[#f5a623]';
-  const avatarCls2 = 'w-10 h-10 rounded-full bg-[var(--accent-glow)] border border-[var(--accent-line)] flex items-center justify-center font-mono text-[14px] font-medium text-[var(--accent)] flex-shrink-0';
+  const avatarCls  = 'w-10 h-10 rounded-full bg-[var(--accent-glow)] border border-[var(--accent-line)] flex items-center justify-center font-mono text-[14px] font-medium text-[var(--accent)] flex-shrink-0';
   list.innerHTML = sentRequests.map(req => `
     <div class="bg-[var(--bg2)] border border-[var(--border2)] rounded-[var(--r-lg)] p-4 flex items-center gap-3.5">
-      <div class="${avatarCls2}">${req.initials}</div>
+      <div class="${avatarCls}">${req.initials}</div>
       <div class="flex-1 min-w-0">
         <div class="text-[13px] font-medium text-[var(--text)]">${req.name}</div>
         <div class="text-[11px] text-[var(--text3)] mt-0.5">${req.studentNumber} · <span class="${pendingCls}">⏳ Pending</span></div>
@@ -159,9 +138,10 @@ function renderSentRequests() {
   ).join('');
 
   list.querySelectorAll('.cancel-req-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      State.cancelSentRequest(btn.dataset.sn);
+    btn.addEventListener('click', async () => {
+      await API.cancelFriendRequest(btn.dataset.sn);
       toast('Request cancelled');
+      await reloadSocial();
       renderPage();
     });
   });
@@ -169,7 +149,6 @@ function renderSentRequests() {
 
 /* ── Friends list ────────────────────────── */
 function renderFriends() {
-  const { friends } = State.get();
   const list  = document.getElementById('friendsList');
   const empty = document.getElementById('friendsEmpty');
   if (!list) return;
@@ -185,12 +164,7 @@ function renderFriends() {
   const privBadgeCls = 'inline-flex items-center gap-1 font-mono text-[10px] px-[7px] py-0.5 rounded-lg bg-[var(--bg3)] border border-[var(--border2)] text-[var(--text3)]';
 
   list.innerHTML = friends.map((f, i) => {
-    const pub = State.getFriendPublicTimetable(f.studentNumber);
     const col = getColor(i);
-    const badgeHtml = pub
-      ? `<span class="${pubBadgeCls}">🌐 Public</span>`
-      : `<span class="${privBadgeCls}">🔒 Private</span>`;
-
     return `
       <div class="bg-[var(--bg2)] border border-[var(--border)] rounded-[var(--r-lg)] p-4 flex items-center gap-3.5 transition-[border-color] hover:border-[var(--border2)]">
         <div class="w-10 h-10 rounded-full border flex items-center justify-center font-mono text-[11px] font-medium flex-shrink-0" style="background:${col.bg};border-color:${col.border};color:${col.border}">
@@ -198,43 +172,65 @@ function renderFriends() {
         </div>
         <div class="flex-1 min-w-0">
           <div class="text-[13px] font-medium text-[var(--text)]">${f.name}</div>
-          <div class="text-[11px] text-[var(--text3)] mt-0.5">${f.studentNumber} · ${badgeHtml}</div>
+          <div class="text-[11px] text-[var(--text3)] mt-0.5">${f.studentNumber} · <span class="tt-status-badge" data-sn="${f.studentNumber}"><span class="${privBadgeCls}">🔒 Private</span></span></div>
         </div>
         <div class="flex items-center gap-2 flex-shrink-0">
-          ${pub
-            ? `<button class="btn btn-sm btn-primary view-tt-btn" data-sn="${f.studentNumber}">View Timetable</button>`
-            : `<button class="btn btn-sm" disabled title="This friend's timetable is private" style="opacity:.4;cursor:not-allowed">Private</button>`
-          }
-          <button class="btn btn-sm btn-danger remove-friend-btn" data-sn="${f.studentNumber}" title="Remove friend">✕</button>
+          <button class="btn btn-sm btn-primary view-tt-btn" data-sn="${f.studentNumber}" style="display:none">View Timetable</button>
+          <button class="btn btn-sm" data-sn="${f.studentNumber}" data-private="1" style="opacity:.4;cursor:not-allowed;display:none" disabled title="This friend's timetable is private">Private</button>
+          <button class="btn btn-sm btn-danger remove-friend-btn" data-sn="${f.studentNumber}" data-name="${f.name}" title="Remove friend">✕</button>
         </div>
       </div>`;
   }).join('');
+
+  // Load each friend's timetable visibility asynchronously
+  friends.forEach(f => {
+    API.getFriendTimetable(f.studentNumber).then(pub => {
+      const badge = list.querySelector(`.tt-status-badge[data-sn="${f.studentNumber}"]`);
+      if (badge) badge.innerHTML = pub
+        ? `<span class="${pubBadgeCls}">🌐 Public</span>`
+        : `<span class="${privBadgeCls}">🔒 Private</span>`;
+
+      const viewBtn    = list.querySelector(`.view-tt-btn[data-sn="${f.studentNumber}"]`);
+      const privateBtn = list.querySelector(`[data-private="1"][data-sn="${f.studentNumber}"]`);
+      if (pub) {
+        viewBtn?.removeAttribute('style');
+      } else {
+        privateBtn?.removeAttribute('style');
+      }
+    });
+  });
 
   list.querySelectorAll('.view-tt-btn').forEach(btn => {
     btn.addEventListener('click', () => openTimetableModal(btn.dataset.sn));
   });
 
   list.querySelectorAll('.remove-friend-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const friend = State.get().friends.find(f => f.studentNumber === btn.dataset.sn);
-      if (friend) {
-        State.removeFriend(btn.dataset.sn);
-        toast(`${friend.name} removed from friends`);
-        renderPage();
-      }
+    btn.addEventListener('click', async () => {
+      await API.removeFriend(btn.dataset.sn);
+      toast(`${btn.dataset.name} removed from friends`);
+      await reloadSocial();
+      renderPage();
     });
   });
 }
 
 /* ── Privacy status (right sidebar) ─────── */
 function updatePrivacyStatus() {
-  const { isPublic } = State.get();
   const badge = document.getElementById('myPublicBadge');
   if (!badge) return;
-  badge.className   = isPublic
+  badge.className   = myTimetable.isPublic
     ? 'inline-flex items-center gap-1 font-mono text-[10px] px-[7px] py-0.5 rounded-lg bg-[var(--green-bg)] border border-[rgba(45,212,160,.3)] text-[var(--green)]'
     : 'inline-flex items-center gap-1 font-mono text-[10px] px-[7px] py-0.5 rounded-lg bg-[var(--bg3)] border border-[var(--border2)] text-[var(--text3)]';
-  badge.textContent = isPublic ? '🌐 Public' : '🔒 Private';
+  badge.textContent = myTimetable.isPublic ? '🌐 Public' : '🔒 Private';
+}
+
+/* ── Reload social data after mutations ──── */
+async function reloadSocial() {
+  [friends, pendingRequests, sentRequests] = await Promise.all([
+    API.getFriends(),
+    API.getPendingRequests(),
+    API.getSentRequests(),
+  ]);
 }
 
 /* ── Add friend ─────────────────────────── */
@@ -248,45 +244,38 @@ function bindAddFriend() {
   input.addEventListener('keydown', e => { if (e.key === 'Enter') doAddFriend(input, err); });
 }
 
-function doAddFriend(input, errEl) {
+async function doAddFriend(input, errEl) {
   const sn = input.value.trim();
 
-  // Validate format
   if (!/^2\d{7}$/.test(sn)) {
     showErr(errEl, 'Must be an 8-digit number starting with 2.');
     return;
   }
-  // Can't add yourself
-  const { user } = State.get();
+  const user = State.getUser();
   if (user?.studentNumber === sn) {
-    showErr(errEl, 'That\'s your own student number!');
+    showErr(errEl, "That's your own student number!");
     return;
   }
-  // Already a friend?
-  if (State.hasFriend(sn)) {
+  if (friends.some(f => f.studentNumber === sn)) {
     showErr(errEl, 'Already in your friends list.');
     return;
   }
-  // Already sent a request?
-  if (State.hasSentRequest(sn)) {
+  if (sentRequests.some(r => r.studentNumber === sn)) {
     showErr(errEl, 'Request already sent — waiting for them to accept.');
     return;
   }
 
-  // Look up profile (mock lookup)
-  const profile = MOCK_PROFILES[sn] || {
-    id:            Date.now(),
-    name:          `Student ${sn}`,
-    initials:      sn.slice(-2),
-    email:         `${sn}@student.uwa.edu.au`,
-    studentNumber: sn,
-  };
-
-  State.sendFriendRequest(profile);
-  hideErr(errEl);
-  input.value = '';
-  toast(`Request sent to ${profile.name}!`, 'success');
-  renderPage();
+  try {
+    await API.sendFriendRequest(sn);
+    await reloadSocial();
+    hideErr(errEl);
+    input.value = '';
+    const profile = await API.lookupUser(sn);
+    toast(`Request sent to ${profile.name}!`, 'success');
+    renderPage();
+  } catch (err) {
+    showErr(errEl, err.message || 'Could not send request');
+  }
 }
 
 function showErr(el, msg) {
@@ -308,17 +297,15 @@ function bindModal() {
   document.getElementById('ttModalClose')?.addEventListener('click', closeTimetableModal);
 }
 
-function openTimetableModal(studentNumber) {
-  const pub = State.getFriendPublicTimetable(studentNumber);
+async function openTimetableModal(studentNumber) {
+  const pub = await API.getFriendTimetable(studentNumber);
   if (!pub) { toast('Timetable not available', 'error'); return; }
 
-  // Header
   document.getElementById('ttModalAvatar').textContent = pub.owner?.initials || '?';
   document.getElementById('ttModalName').textContent   = pub.owner?.name    || 'Friend';
   document.getElementById('ttModalMeta').textContent   =
     `${pub.semester || 'S1'} · ${pub.timetableName || 'Timetable'} · Public`;
 
-  // Render unit badge list
   const unitEl = document.getElementById('ttModalUnits');
   if (unitEl) {
     unitEl.innerHTML = (pub.selected || []).map((s, i) => {
@@ -327,10 +314,7 @@ function openTimetableModal(studentNumber) {
     }).join('');
   }
 
-  // Render timetable grid
   renderModalGrid(pub.selected || []);
-
-  // Open modal
   document.getElementById('ttModal')?.classList.add('open');
 }
 
