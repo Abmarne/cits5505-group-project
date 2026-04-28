@@ -33,7 +33,7 @@
       <p class="text-[14px] text-[var(--text2)]">Search and add units to your semester plan. Click + to add to your selection.</p>
     </div>
 
-    <div class="grid gap-5 items-start grid-cols-1 lg:grid-cols-[1fr_340px]">
+    <div id="coursesLayout" class="grid gap-5 items-start grid-cols-1 lg:grid-cols-[1fr_340px]">
 
       <!-- ── Left: filter + table ── -->
       <div>
@@ -89,7 +89,7 @@
       <div>
 
         <!-- Basket -->
-        <div class="bg-[var(--bg2)] border border-[var(--border)] rounded-xl overflow-hidden mb-[14px]">
+        <div id="basketCard" class="bg-[var(--bg2)] border border-[var(--border)] rounded-xl overflow-hidden mb-[14px]">
           <div class="px-5 py-4 border-b border-[var(--border)] flex items-center justify-between">
             <div class="font-display text-[15px] font-bold text-[var(--text)]">My selection</div>
             <a class="btn btn-sm btn-ghost" href="selected.html">View details →</a>
@@ -103,7 +103,7 @@
         </div>
 
         <!-- Manual add -->
-        <div class="bg-[var(--bg2)] border border-[var(--border)] rounded-xl overflow-hidden">
+        <div id="manualCard" class="bg-[var(--bg2)] border border-[var(--border)] rounded-xl overflow-hidden">
           <div class="px-5 py-4 border-b border-[var(--border)] flex items-center justify-between">
             <div class="font-display text-[15px] font-bold text-[var(--text)]">Add manually</div>
           </div>

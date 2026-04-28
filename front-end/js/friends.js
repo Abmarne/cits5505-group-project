@@ -20,6 +20,8 @@ let sentRequests    = [];
 let myTimetable     = { selected: [], isPublic: false, name: '' };
 
 document.addEventListener('DOMContentLoaded', async () => {
+  if (!State.getUser()) { window.location.href = 'auth.html'; return; }
+
   API.seedDemoData();
 
   try {

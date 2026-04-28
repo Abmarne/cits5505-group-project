@@ -10,8 +10,8 @@
 
 import MOCK from './mockapi.js';
 
-const USE_MOCK = true;   // ← flip to false when Flask is live
-const BASE_URL = '';     // ← e.g. 'http://localhost:5000'
+const USE_MOCK = true;              // ← flip to false when Flask is live
+const BASE_URL = 'http://localhost:5000';  // ← Flask dev server
 
 /* ── Real fetch helpers ────────────────── */
 async function request(path, options = {}) {

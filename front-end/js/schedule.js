@@ -21,6 +21,8 @@ let timetableName    = '';
 let activeDrawerCode = null;
 
 document.addEventListener('DOMContentLoaded', async () => {
+  if (!State.getUser()) { window.location.href = 'auth.html'; return; }
+
   try {
     [allCourses, { selected, isPublic, name: timetableName }] = await Promise.all([
       API.getCourses(),

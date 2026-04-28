@@ -2,25 +2,38 @@
    courses.js — Course Input / Browse page
 ═══════════════════════════════════════════ */
 
-import API from './utils/mockapi.js';
-import toast from './utils/toast.js';
-import { DAYS, getColor } from './utils/schedule-utils.js';
-import { updateNavBadge } from './utils/nav.js';
-import './utils/components.js';
+import API from "./utils/api.js";
+import State from "./utils/state.js";
+import toast from "./utils/toast.js";
+import { DAYS, getColor } from "./utils/schedule-utils.js";
+import { updateNavBadge } from "./utils/nav.js";
+import "./utils/components.js";
 
 let allCourses = [];
-let selected   = [];   // [{ code, altIdx }] — local copy, synced to API
-let activeSems = ['S1', 'S2'];
-let tablePage  = 0;
+let selected = []; // [{ code, altIdx }] — local copy, synced to API
+let activeSems = ["S1", "S2"];
+let tablePage = 0;
 const PAGE_SIZE = 8;
 
-document.addEventListener('DOMContentLoaded', async () => {
-  await Promise.all([loadCourses(), loadTimetable()]);
+document.addEventListener("DOMContentLoaded", async () => {
+  const loggedIn = !!State.getUser();
+
+  if (!loggedIn) {
+    document.getElementById("basketCard")?.style.setProperty("display", "none");
+    document.getElementById("manualCard")?.style.setProperty("display", "none");
+    document
+      .getElementById("coursesLayout")
+      ?.classList.replace("lg:grid-cols-[1fr_340px]", "lg:grid-cols-1");
+    await loadCourses();
+  } else {
+    await Promise.all([loadCourses(), loadTimetable()]);
+  }
+
   bindFilters();
   bindSearch();
-  bindManualAdd();
+  if (loggedIn) bindManualAdd();
   renderTable();
-  renderBasket();
+  if (loggedIn) renderBasket();
 });
 
 /* ── Data ────────────────────────────────── */
@@ -29,7 +42,7 @@ async function loadCourses() {
     allCourses = await API.getCourses();
   } catch (err) {
     console.error(err);
-    toast('Could not load unit data', 'error');
+    toast("Could not load unit data", "error");
   }
 }
 
@@ -48,17 +61,18 @@ async function saveSelected() {
     await API.saveTimetable({ selected });
     updateNavBadge(selected.length);
   } catch (err) {
-    toast('Could not save selection', 'error');
+    toast("Could not save selection", "error");
   }
 }
 
 /* ── Filters ─────────────────────────────── */
 function bindFilters() {
-  document.querySelectorAll('.filter-chip[data-sem]').forEach(chip => {
-    chip.addEventListener('click', () => {
-      chip.classList.toggle('on');
-      activeSems = [...document.querySelectorAll('.filter-chip[data-sem].on')]
-        .map(c => c.dataset.sem);
+  document.querySelectorAll(".filter-chip[data-sem]").forEach((chip) => {
+    chip.addEventListener("click", () => {
+      chip.classList.toggle("on");
+      activeSems = [
+        ...document.querySelectorAll(".filter-chip[data-sem].on"),
+      ].map((c) => c.dataset.sem);
       tablePage = 0;
       renderTable();
     });
@@ -66,19 +80,22 @@ function bindFilters() {
 }
 
 function bindSearch() {
-  document.getElementById('unitSearch')?.addEventListener('input', () => {
+  document.getElementById("unitSearch")?.addEventListener("input", () => {
     tablePage = 0;
     renderTable();
   });
 }
 
 function getFilteredCourses() {
-  const q = (document.getElementById('unitSearch')?.value || '').toLowerCase();
-  return allCourses.filter(c => {
-    const semOk = activeSems.length === 0 || c.sems.some(s => activeSems.includes(s));
-    const qOk   = !q || c.code.toLowerCase().includes(q)
-                     || c.name.toLowerCase().includes(q)
-                     || c.faculty.toLowerCase().includes(q);
+  const q = (document.getElementById("unitSearch")?.value || "").toLowerCase();
+  return allCourses.filter((c) => {
+    const semOk =
+      activeSems.length === 0 || c.sems.some((s) => activeSems.includes(s));
+    const qOk =
+      !q ||
+      c.code.toLowerCase().includes(q) ||
+      c.name.toLowerCase().includes(q) ||
+      c.faculty.toLowerCase().includes(q);
     return semOk && qOk;
   });
 }
@@ -86,42 +103,50 @@ function getFilteredCourses() {
 /* ── Table ───────────────────────────────── */
 function renderTable() {
   const courses = getFilteredCourses();
-  const start   = tablePage * PAGE_SIZE;
-  const slice   = courses.slice(start, start + PAGE_SIZE);
-  const tbody   = document.getElementById('courseTableBody');
+  const start = tablePage * PAGE_SIZE;
+  const slice = courses.slice(start, start + PAGE_SIZE);
+  const tbody = document.getElementById("courseTableBody");
   if (!tbody) return;
 
   tbody.innerHTML = slice.length
-    ? slice.map(buildTableRow).join('')
+    ? slice.map(buildTableRow).join("")
     : `<tr><td colspan="6" style="text-align:center;padding:32px;color:var(--text3);font-style:italic">No units found</td></tr>`;
 
-  tbody.querySelectorAll('.add-row-btn').forEach(btn => {
-    btn.addEventListener('click', () => toggleCourse(btn.dataset.code));
+  tbody.querySelectorAll(".add-row-btn").forEach((btn) => {
+    btn.addEventListener("click", () => toggleCourse(btn.dataset.code));
   });
 
-  document.getElementById('tableCount').textContent =
-    `${courses.length} unit${courses.length !== 1 ? 's' : ''}`;
+  document.getElementById("tableCount").textContent =
+    `${courses.length} unit${courses.length !== 1 ? "s" : ""}`;
   renderPagination(courses.length);
 }
 
 const TYPE_TAG_CLS = {
-  lec: 'bg-blue-500/10 border-blue-500/30 text-blue-400',
-  lab: 'bg-purple-500/10 border-purple-500/30 text-purple-400',
-  tut: 'bg-green-500/10 border-green-500/30 text-green-400',
+  lec: "bg-blue-500/10 border-blue-500/30 text-blue-400",
+  lab: "bg-purple-500/10 border-purple-500/30 text-purple-400",
+  tut: "bg-green-500/10 border-green-500/30 text-green-400",
 };
-const TAG_BASE = 'inline-flex items-center px-[7px] py-[2px] rounded-md text-[10px] font-mono border';
+const TAG_BASE =
+  "inline-flex items-center px-[7px] py-[2px] rounded-md text-[10px] font-mono border";
 
 function buildTableRow(c) {
-  const isAdded = selected.some(x => x.code === c.code);
-  const tags    = c.sessions.map(s => {
-    const cls = TYPE_TAG_CLS[s.type.toLowerCase()] || 'border-[var(--border2)] text-[var(--text2)] bg-[var(--bg3)]';
-    return `<span class="${TAG_BASE} ${cls}">${s.type} ${DAYS[s.day].slice(0, 3)}</span>`;
-  }).join('');
-  const sems = c.sems.map(s =>
-    `<span class="${TAG_BASE} bg-[var(--accent-glow)] border-[var(--accent-line)] text-[var(--accent)]">${s}</span>`
-  ).join('');
+  const isAdded = selected.some((x) => x.code === c.code);
+  const tags = c.sessions
+    .map((s) => {
+      const cls =
+        TYPE_TAG_CLS[s.type.toLowerCase()] ||
+        "border-[var(--border2)] text-[var(--text2)] bg-[var(--bg3)]";
+      return `<span class="${TAG_BASE} ${cls}">${s.type} ${DAYS[s.day].slice(0, 3)}</span>`;
+    })
+    .join("");
+  const sems = c.sems
+    .map(
+      (s) =>
+        `<span class="${TAG_BASE} bg-[var(--accent-glow)] border-[var(--accent-line)] text-[var(--accent)]">${s}</span>`,
+    )
+    .join("");
 
-  return `<tr class="${isAdded ? 'row-selected' : ''}">
+  return `<tr class="${isAdded ? "row-selected" : ""}">
     <td class="font-mono text-[12px] font-medium text-[var(--text)]">${c.code}</td>
     <td>
       <div class="font-medium text-[13px] text-[var(--text)]">${c.name}</div>
@@ -131,9 +156,9 @@ function buildTableRow(c) {
     <td><div class="flex flex-wrap gap-1">${sems}</div></td>
     <td><div class="flex flex-wrap gap-1">${tags}</div></td>
     <td>
-      <button class="add-row-btn ${isAdded ? 'added' : ''}" data-code="${c.code}"
-        title="${isAdded ? 'Remove from selection' : 'Add to selection'}">
-        ${isAdded ? '✓' : '+'}
+      <button class="add-row-btn ${isAdded ? "added" : ""}" data-code="${c.code}"
+        title="${isAdded ? "Remove from selection" : "Add to selection"}">
+        ${isAdded ? "✓" : "+"}
       </button>
     </td>
   </tr>`;
@@ -142,13 +167,15 @@ function buildTableRow(c) {
 /* ── Pagination ──────────────────────────── */
 function renderPagination(total) {
   const pages = Math.ceil(total / PAGE_SIZE);
-  const el    = document.getElementById('pagination');
+  const el = document.getElementById("pagination");
   if (!el) return;
-  el.innerHTML = Array.from({ length: pages }, (_, i) =>
-    `<button class="page-btn ${i === tablePage ? 'current' : ''}" data-page="${i}">${i + 1}</button>`
-  ).join('');
-  el.querySelectorAll('.page-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
+  el.innerHTML = Array.from(
+    { length: pages },
+    (_, i) =>
+      `<button class="page-btn ${i === tablePage ? "current" : ""}" data-page="${i}">${i + 1}</button>`,
+  ).join("");
+  el.querySelectorAll(".page-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
       tablePage = parseInt(btn.dataset.page);
       renderTable();
     });
@@ -157,12 +184,16 @@ function renderPagination(total) {
 
 /* ── Toggle course in/out of selection ───── */
 async function toggleCourse(code) {
-  if (selected.some(x => x.code === code)) {
-    selected = selected.filter(x => x.code !== code);
+  if (!State.getUser()) {
+    window.location.href = "auth.html";
+    return;
+  }
+  if (selected.some((x) => x.code === code)) {
+    selected = selected.filter((x) => x.code !== code);
     toast(`${code} removed`);
   } else {
     selected = [...selected, { code, altIdx: 0 }];
-    toast(`${code} added`, 'success');
+    toast(`${code} added`, "success");
   }
   await saveSelected();
   renderTable();
@@ -171,59 +202,62 @@ async function toggleCourse(code) {
 
 /* ── Basket (right sidebar) ──────────────── */
 function renderBasket() {
-  const body   = document.getElementById('basketBody');
-  const footer = document.getElementById('basketFooter');
+  const body = document.getElementById("basketBody");
+  const footer = document.getElementById("basketFooter");
   if (!body) return;
 
   if (!selected.length) {
-    body.innerHTML        = '<div class="p-8 text-center text-[var(--text3)] text-[13px] italic">Add units from the table</div>';
-    if (footer) footer.style.display = 'none';
+    body.innerHTML =
+      '<div class="p-8 text-center text-[var(--text3)] text-[13px] italic">Add units from the table</div>';
+    if (footer) footer.style.display = "none";
     return;
   }
 
-  if (footer) footer.style.display = '';
+  if (footer) footer.style.display = "";
 
-  body.innerHTML = `<div class="flex flex-col gap-2">${
-    selected.map(({ code }, i) => {
-      const c   = allCourses.find(x => x.code === code);
+  body.innerHTML = `<div class="flex flex-col gap-2">${selected
+    .map(({ code }, i) => {
+      const c = allCourses.find((x) => x.code === code);
       const col = getColor(i);
       return `<div class="flex items-center gap-2.5">
         <div class="w-2 h-2 rounded-full flex-shrink-0" style="background:${col.border}"></div>
         <div class="flex-1 min-w-0">
           <div class="font-mono text-[11px] font-medium text-[var(--text)]">${code}</div>
-          <div class="text-[11px] text-[var(--text3)] truncate">${c ? c.name : 'Custom unit'}</div>
+          <div class="text-[11px] text-[var(--text3)] truncate">${c ? c.name : "Custom unit"}</div>
         </div>
-        <div class="text-[10px] font-mono text-[var(--text3)] whitespace-nowrap">${c ? c.cp + ' cp' : ''}</div>
+        <div class="text-[10px] font-mono text-[var(--text3)] whitespace-nowrap">${c ? c.cp + " cp" : ""}</div>
         <button class="w-5 h-5 rounded flex items-center justify-center border-0 bg-transparent text-[var(--text3)] text-[14px] cursor-pointer hover:text-[var(--red)] hover:bg-[var(--red-bg)] flex-shrink-0 rm-btn" data-code="${code}" aria-label="Remove ${code}">×</button>
       </div>`;
-    }).join('')
-  }</div>`;
+    })
+    .join("")}</div>`;
 
-  body.querySelectorAll('.rm-btn').forEach(btn => {
-    btn.addEventListener('click', () => toggleCourse(btn.dataset.code));
+  body.querySelectorAll(".rm-btn").forEach((btn) => {
+    btn.addEventListener("click", () => toggleCourse(btn.dataset.code));
   });
 }
 
 /* ── Manual unit add ─────────────────────── */
 function bindManualAdd() {
-  document.getElementById('addManualBtn')?.addEventListener('click', addManual);
-  document.getElementById('manualCode')?.addEventListener('keydown', e => {
-    if (e.key === 'Enter') addManual();
+  document.getElementById("addManualBtn")?.addEventListener("click", addManual);
+  document.getElementById("manualCode")?.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") addManual();
   });
 
-  document.querySelectorAll('.sem-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      document.querySelectorAll('.sem-btn').forEach(b => b.classList.remove('on'));
-      btn.classList.add('on');
+  document.querySelectorAll(".sem-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      document
+        .querySelectorAll(".sem-btn")
+        .forEach((b) => b.classList.remove("on"));
+      btn.classList.add("on");
     });
   });
 }
 
 async function addManual() {
-  const input = document.getElementById('manualCode');
-  const code  = input.value.trim().toUpperCase();
+  const input = document.getElementById("manualCode");
+  const code = input.value.trim().toUpperCase();
   if (!code) return;
-  if (selected.some(x => x.code === code)) {
+  if (selected.some((x) => x.code === code)) {
     toast(`${code} is already in your selection`);
     return;
   }
@@ -231,6 +265,6 @@ async function addManual() {
   await saveSelected();
   renderBasket();
   renderTable();
-  toast(`${code} added manually`, 'success');
-  input.value = '';
+  toast(`${code} added manually`, "success");
+  input.value = "";
 }

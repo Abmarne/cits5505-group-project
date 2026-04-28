@@ -2,19 +2,19 @@
    nav.js — Navigation helpers
 ═══════════════════════════════════════════ */
 
-import State from './state.js';
+import State from "./state.js";
 
 /* ── Badge ──────────────────────────────── */
 function updateNavBadge(selCount = 0) {
-  document.querySelectorAll('[data-badge="sel"]').forEach(b => {
-    b.textContent   = selCount;
-    b.style.display = selCount > 0 ? 'inline-flex' : 'none';
+  document.querySelectorAll('[data-badge="sel"]').forEach((b) => {
+    b.textContent = selCount;
+    b.style.display = selCount > 0 ? "inline-flex" : "none";
   });
 }
 
 /* ── User avatar / auth links ───────────── */
 function renderNavUser() {
-  const right = document.getElementById('navRight');
+  const right = document.getElementById("navRight");
   if (!right) return;
 
   const user = State.getUser();
@@ -26,10 +26,10 @@ function renderNavUser() {
       </a>
       <a href="index.html" class="btn btn-ghost btn-sm hidden md:inline-flex" id="logoutBtn">Log out</a>`;
 
-    document.getElementById('logoutBtn')?.addEventListener('click', e => {
+    document.getElementById("logoutBtn")?.addEventListener("click", (e) => {
       e.preventDefault();
       State.clearUser();
-      window.location.href = 'index.html';
+      window.location.href = "index.html";
     });
   } else {
     right.innerHTML = `
@@ -40,10 +40,10 @@ function renderNavUser() {
 
 /* ── Active nav link ────────────────────── */
 function markActiveLink() {
-  const page = location.pathname.split('/').pop() || 'index.html';
-  document.querySelectorAll('.nav-link').forEach(link => {
-    const href = link.getAttribute('href') || '';
-    link.classList.toggle('active', href === page);
+  const page = location.pathname.split("/").pop() || "index.html";
+  document.querySelectorAll(".nav-link").forEach((link) => {
+    const href = link.getAttribute("href") || "";
+    link.classList.toggle("active", href === page);
   });
 }
 

@@ -6,16 +6,16 @@
 ═══════════════════════════════════════════ */
 
 /** Day names indexed 0–4 (Mon–Fri) */
-const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
+const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
 
 /** Per-unit colour palette (cycles) */
 const PALETTE = [
-  { bg: 'rgba(79,142,247,.18)',  border: '#4f8ef7', text: '#a8c4ff' },
-  { bg: 'rgba(45,212,160,.15)',  border: '#2dd4a0', text: '#6eeacc' },
-  { bg: 'rgba(245,166,35,.15)',  border: '#f5a623', text: '#fcd34d' },
-  { bg: 'rgba(247,111,111,.15)', border: '#f76f6f', text: '#fca5a5' },
-  { bg: 'rgba(167,139,250,.18)', border: '#a78bfa', text: '#c4b5fd' },
-  { bg: 'rgba(251,146,60,.15)',  border: '#fb923c', text: '#fdba74' },
+  { bg: "rgba(79,142,247,.18)", border: "#4f8ef7", text: "#a8c4ff" },
+  { bg: "rgba(45,212,160,.15)", border: "#2dd4a0", text: "#6eeacc" },
+  { bg: "rgba(245,166,35,.15)", border: "#f5a623", text: "#fcd34d" },
+  { bg: "rgba(247,111,111,.15)", border: "#f76f6f", text: "#fca5a5" },
+  { bg: "rgba(167,139,250,.18)", border: "#a78bfa", text: "#c4b5fd" },
+  { bg: "rgba(251,146,60,.15)", border: "#fb923c", text: "#fdba74" },
 ];
 
 /**
@@ -36,16 +36,17 @@ function getColor(index) {
  * @returns {Array}        - array of session objects
  */
 function getActiveSessions(course, altIdx) {
-  if (altIdx === 0 || !course.alternatives || !course.alternatives[altIdx - 1]) {
+  if (
+    altIdx === 0 ||
+    !course.alternatives ||
+    !course.alternatives[altIdx - 1]
+  ) {
     return course.sessions;
   }
-  const alt      = course.alternatives[altIdx - 1];
-  const altTypes = alt.map(s => s.type);
+  const alt = course.alternatives[altIdx - 1];
+  const altTypes = alt.map((s) => s.type);
   // Keep non-conflicting base sessions + replace with alt
-  return [
-    ...course.sessions.filter(s => !altTypes.includes(s.type)),
-    ...alt,
-  ];
+  return [...course.sessions.filter((s) => !altTypes.includes(s.type)), ...alt];
 }
 
 /**
@@ -59,14 +60,14 @@ function detectConflicts(selected, courses) {
   // Flatten all scheduled blocks
   const blocks = [];
   selected.forEach(({ code, altIdx }) => {
-    const course = courses.find(c => c.code === code);
+    const course = courses.find((c) => c.code === code);
     if (!course) return;
-    getActiveSessions(course, altIdx).forEach(s => {
+    getActiveSessions(course, altIdx).forEach((s) => {
       blocks.push({
         code,
-        day:   s.day,
+        day: s.day,
         start: s.hour,
-        end:   s.hour + s.duration,
+        end: s.hour + s.duration,
       });
     });
   });
@@ -95,7 +96,7 @@ function detectConflicts(selected, courses) {
  */
 function getTotalCp(selected, courses) {
   return selected.reduce((sum, { code }) => {
-    const c = courses.find(x => x.code === code);
+    const c = courses.find((x) => x.code === code);
     return sum + (c ? c.cp : 0);
   }, 0);
 }
@@ -110,11 +111,19 @@ function getTotalCp(selected, courses) {
 function getDaysUsed(selected, courses) {
   const days = new Set();
   selected.forEach(({ code, altIdx }) => {
-    const c = courses.find(x => x.code === code);
+    const c = courses.find((x) => x.code === code);
     if (!c) return;
-    getActiveSessions(c, altIdx).forEach(s => days.add(s.day));
+    getActiveSessions(c, altIdx).forEach((s) => days.add(s.day));
   });
   return days.size;
 }
 
-export { DAYS, PALETTE, getColor, getActiveSessions, detectConflicts, getTotalCp, getDaysUsed };
+export {
+  DAYS,
+  PALETTE,
+  getColor,
+  getActiveSessions,
+  detectConflicts,
+  getTotalCp,
+  getDaysUsed,
+};
