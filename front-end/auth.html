@@ -6,18 +6,7 @@
   <title>Login / Sign up — UWA Planner</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=Instrument+Sans:ital,wght@0,300;0,400;0,500;1,300&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-  <script>
-    tailwind.config = {
-      theme: {
-        fontFamily: {
-          sans:    ['"Instrument Sans"', 'sans-serif'],
-          display: ['Syne', 'sans-serif'],
-          mono:    ['"JetBrains Mono"', 'monospace'],
-        },
-      },
-    }
-  </script>
-  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="css/tailwind-built.css">
   <link rel="stylesheet" href="css/tokens.css">
   <link rel="stylesheet" href="css/custom.css">
 </head>
@@ -41,10 +30,10 @@
         <div class="text-[13px] text-[var(--text2)] mb-6">Log in to access your saved timetables</div>
 
         <div class="mb-4">
-          <label class="block text-[12px] font-medium text-[var(--text2)] mb-1.5 tracking-[.02em]" for="loginEmail">Email address</label>
+          <label class="block text-[12px] font-medium text-[var(--text2)] mb-1.5 tracking-[.02em]" for="loginEmail">Email or student number</label>
           <input class="w-full py-2.5 px-[14px] bg-[var(--bg3)] border border-[var(--border2)] rounded text-[var(--text)] text-[14px] outline-none transition-colors focus:border-[var(--accent)] placeholder:text-[var(--text3)]"
-            type="email" id="loginEmail" placeholder="you@student.uwa.edu.au" autocomplete="email">
-          <div class="text-[12px] text-[var(--red)] mt-1 hidden" id="loginEmailErr">Please enter a valid email address</div>
+            type="text" id="loginEmail" placeholder="you@student.uwa.edu.au or 21234567" autocomplete="username">
+          <div class="text-[12px] text-[var(--red)] mt-1 hidden" id="loginEmailErr">Enter your email address or 8-digit student number</div>
         </div>
 
         <div class="mb-4">

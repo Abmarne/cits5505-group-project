@@ -106,7 +106,8 @@ async function handleLogin() {
   const pass = document.getElementById("loginPass").value;
   const emailErr = document.getElementById("loginEmailErr");
 
-  if (!email.includes("@")) {
+  const isStudentId = /^\d{8}$/.test(email);
+  if (!isStudentId && !email.includes("@")) {
     emailErr.classList.remove("hidden");
     return;
   }

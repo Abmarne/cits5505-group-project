@@ -211,11 +211,14 @@ def health():
 # ════════════════════════════════════════
 @app.post('/api/auth/login')
 def auth_login():
-    data  = request.get_json(silent=True) or {}
-    email = (data.get('email') or '').strip().lower()
-    user  = User.query.filter_by(email=email).first()
+    data       = request.get_json(silent=True) or {}
+    identifier = (data.get('email') or '').strip()
+    user = (
+        User.query.filter_by(email=identifier.lower()).first() or
+        User.query.filter_by(student_number=identifier).first()
+    )
     if not user or not user.check_password(data.get('password', '')):
-        return err('Invalid email or password', 401)
+        return err('Invalid email/student ID or password', 401)
     return jsonify({'user': user_dict(user), 'access_token': make_token(user)})
 
 
