@@ -22,8 +22,6 @@ let myTimetable     = { selected: [], isPublic: false, name: '' };
 document.addEventListener('DOMContentLoaded', async () => {
   if (!State.getUser()) { window.location.href = 'auth.html'; return; }
 
-  API.seedDemoData();
-
   try {
     [allCourses, friends, pendingRequests, sentRequests, myTimetable] = await Promise.all([
       API.getCourses(),

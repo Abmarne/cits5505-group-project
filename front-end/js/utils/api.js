@@ -8,21 +8,28 @@
    Pages always import from this file only.
 ═══════════════════════════════════════════ */
 
-import MOCK from './mockapi.js';
-
-const USE_MOCK = true;              // ← flip to false when Flask is live
 const BASE_URL = 'http://localhost:5000';  // ← Flask dev server
 
 /* ── Real fetch helpers ────────────────── */
+function getToken() {
+  try { return JSON.parse(localStorage.getItem('uwa_planner_user'))?.token ?? null; } catch { return null; }
+}
+
 async function request(path, options = {}) {
-  const res = await fetch(BASE_URL + path, {
-    credentials: 'include',
-    headers: { 'Content-Type': 'application/json', ...options.headers },
-    ...options,
-  });
+  const token   = getToken();
+  const headers = { 'Content-Type': 'application/json', ...options.headers };
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+  const res = await fetch(BASE_URL + path, { ...options, headers });
   if (!res.ok) {
-    const err = await res.json().catch(() => ({ message: res.statusText }));
-    throw new Error(err.message || `Request failed (${res.status})`);
+    const body = await res.json().catch(() => ({ message: res.statusText }));
+    // Only auto-logout when we sent a token that the server rejected.
+    // A plain 401 with no token sent (e.g. wrong password) should not redirect.
+    if (res.status === 401 && token) {
+      localStorage.removeItem('uwa_planner_user');
+      window.location.href = 'auth.html';
+      return;
+    }
+    throw new Error(body.message || `Request failed (${res.status})`);
   }
   return res.json();
 }
@@ -39,26 +46,22 @@ const REAL = {
   ════════════════════════════════════════ */
 
   async login(email, password) {
-    return nullable(() =>
-      request('/api/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) })
-        .then(d => d.user)
-    );
-  },
-
-  async loginDemo() {
-    return this.login('21000001@student.uwa.edu.au', 'demo1234');
+    return nullable(async () => {
+      const d = await request('/api/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) });
+      return { ...d.user, token: d.access_token };
+    });
   },
 
   async register({ name, studentNumber, email, password }) {
-    const data = await request('/api/auth/register', {
+    const d = await request('/api/auth/register', {
       method: 'POST',
       body: JSON.stringify({ name, studentNumber, email, password }),
     });
-    return data.user;
+    return { ...d.user, token: d.access_token };
   },
 
   async logout() {
-    return request('/api/auth/logout', { method: 'POST' });
+    return nullable(() => request('/api/auth/logout', { method: 'POST' }));
   },
 
   async changePassword({ currentPassword, newPassword }) {
@@ -181,8 +184,6 @@ const REAL = {
     return nullable(() => request(`/api/users/${studentNumber}`));
   },
 
-  seedDemoData() {},
-
 };
 
-export default USE_MOCK ? MOCK : REAL;
+export default REAL;

@@ -92,9 +92,6 @@ function bindStrengthMeter() {
 function bindForms() {
   document.getElementById("loginBtn")?.addEventListener("click", handleLogin);
   document.getElementById("signupBtn")?.addEventListener("click", handleSignup);
-  document
-    .getElementById("demoLoginBtn")
-    ?.addEventListener("click", handleDemoLogin);
 
   document.getElementById("loginPass")?.addEventListener("keydown", (e) => {
     if (e.key === "Enter") handleLogin();
@@ -124,11 +121,6 @@ async function handleLogin() {
     toast("Incorrect email or password", "error");
     return;
   }
-  loginAs(user);
-}
-
-async function handleDemoLogin() {
-  const user = await API.loginDemo();
   loginAs(user);
 }
 

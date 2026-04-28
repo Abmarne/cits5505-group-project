@@ -6,7 +6,7 @@
 import State from './utils/state.js';
 import API from './utils/api.js';
 import toast from './utils/toast.js';
-import { DAYS, getColor, getActiveSessions, detectConflicts, getTotalCp, getDaysUsed } from './utils/schedule-utils.js';
+import { DAYS, getColor, getActiveSessions, getTotalCp, getDaysUsed } from './utils/schedule-utils.js';
 import { updateNavBadge } from './utils/nav.js';
 import './utils/components.js';
 
@@ -16,6 +16,7 @@ const TOTAL_H = 12;
 
 let allCourses       = [];
 let selected         = [];
+let conflicts        = new Set();   // refreshed from backend on every selection change
 let isPublic         = false;
 let timetableName    = '';
 let activeDrawerCode = null;
@@ -35,20 +36,36 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   updateNavBadge(selected.length);
-  renderAll();
+  await refreshConflicts();
+  renderUI();
   bindControls();
   bindPublicToggle();
 });
 
-/* ── Render everything ───────────────────── */
-function renderAll() {
-  const conflicts = detectConflicts(selected, allCourses);
+/* ── Fetch conflicts from backend, update module state ── */
+async function refreshConflicts() {
+  try {
+    const { conflicts: list } = await API.detectConflicts(selected);
+    conflicts = new Set(list);
+  } catch { conflicts = new Set(); }
+}
+
+/* ── Re-render UI with current cached conflicts ── */
+function renderUI() {
   renderSummaryBar(conflicts);
   renderConflictAlert(conflicts);
   renderLegend();
   renderVariantButtons();
   renderTimetable(conflicts);
   renderUnitCards(conflicts);
+}
+
+/* ── Save selection, refresh conflicts, re-render ── */
+async function saveAndRefresh() {
+  await API.saveTimetable({ selected });
+  updateNavBadge(selected.length);
+  await refreshConflicts();
+  renderUI();
 }
 
 /* ── Summary stats bar ───────────────────── */
@@ -212,11 +229,10 @@ function renderUnitCards(conflicts) {
 
   grid.querySelectorAll('.remove-unit-btn').forEach(btn => {
     btn.addEventListener('click', async () => {
-      selected = selected.filter(x => x.code !== btn.dataset.code);
-      await API.saveTimetable({ selected });
-      updateNavBadge(selected.length);
-      toast(`${btn.dataset.code} removed`);
-      renderAll();
+      const code = btn.dataset.code;
+      selected = selected.filter(x => x.code !== code);
+      toast(`${code} removed`);
+      await saveAndRefresh();
     });
   });
 }
@@ -305,11 +321,10 @@ function showAltDrawer(code) {
   drawer.querySelectorAll('.alt-chip').forEach(chip => {
     chip.addEventListener('click', async () => {
       const idx = parseInt(chip.dataset.idx);
-      selected  = selected.map(s => s.code === code ? { ...s, altIdx: idx } : s);
-      await API.saveTimetable({ selected });
-      renderAll();
+      selected = selected.map(s => s.code === code ? { ...s, altIdx: idx } : s);
       drawer.querySelectorAll('.alt-chip').forEach(c => c.classList.remove('chosen'));
       chip.classList.add('chosen');
+      await saveAndRefresh();
     });
   });
 
@@ -322,7 +337,7 @@ function showAltDrawer(code) {
 /* ── Controls ────────────────────────────── */
 function bindControls() {
   ['prefNo8', 'prefCompact', 'prefFri'].forEach(id => {
-    document.getElementById(id)?.addEventListener('change', renderAll);
+    document.getElementById(id)?.addEventListener('change', () => renderUI());
   });
 
   document.getElementById('startRange')?.addEventListener('input', function () {
@@ -387,11 +402,9 @@ async function autoSchedule() {
 
   try {
     const result = await API.autoSchedule({ selected, preferences });
-    selected     = result.selected;
-    await API.saveTimetable({ selected });
-    const drawer = document.getElementById('altDrawer');
-    if (drawer) drawer.style.display = 'none';
-    renderAll();
+    selected = result.selected;
+    document.getElementById('altDrawer')?.style.setProperty('display', 'none');
+    await saveAndRefresh();
     toast('Schedule optimised!', 'success');
   } catch {
     toast('Auto-schedule failed', 'error');

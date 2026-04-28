@@ -51,11 +51,12 @@ function bindSaveProfile() {
       err.classList.add("hidden");
 
       try {
+        const token   = State.getUser()?.token;
         const updated = await API.updateProfile({
           name: name || State.getUser().name,
           studentNumber: sn,
         });
-        State.setUser(updated);
+        State.setUser({ ...updated, token });
         populateBanner(updated);
         toast("Profile updated", "success");
       } catch (e) {

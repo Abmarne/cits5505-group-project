@@ -57,11 +57,12 @@ async function loadTimetable() {
 }
 
 async function saveSelected() {
+  updateNavBadge(selected.length);
   try {
     await API.saveTimetable({ selected });
-    updateNavBadge(selected.length);
-  } catch (err) {
-    toast("Could not save selection", "error");
+  } catch (e) {
+    console.error("saveTimetable failed:", e);
+    toast(e.message || "Could not save selection", "error");
   }
 }
 
@@ -183,21 +184,33 @@ function renderPagination(total) {
 }
 
 /* ── Toggle course in/out of selection ───── */
-async function toggleCourse(code) {
+function toggleCourse(code) {
   if (!State.getUser()) {
     window.location.href = "auth.html";
     return;
   }
-  if (selected.some((x) => x.code === code)) {
+  const wasAdded = selected.some((x) => x.code === code);
+  if (wasAdded) {
     selected = selected.filter((x) => x.code !== code);
     toast(`${code} removed`);
   } else {
     selected = [...selected, { code, altIdx: 0 }];
     toast(`${code} added`, "success");
   }
-  await saveSelected();
-  renderTable();
+  // Update only the affected row — no full table rebuild
+  patchTableRow(code, !wasAdded);
   renderBasket();
+  saveSelected(); // fire-and-forget — keeps DOM updates in one paint frame
+}
+
+/* ── Patch a single table row without rebuilding the whole table ── */
+function patchTableRow(code, isAdded) {
+  const btn = document.querySelector(`.add-row-btn[data-code="${code}"]`);
+  if (!btn) return;
+  btn.closest("tr")?.classList.toggle("row-selected", isAdded);
+  btn.classList.toggle("added", isAdded);
+  btn.textContent = isAdded ? "✓" : "+";
+  btn.title = isAdded ? "Remove from selection" : "Add to selection";
 }
 
 /* ── Basket (right sidebar) ──────────────── */
