@@ -14,7 +14,7 @@ from flask_jwt_extended import (
     JWTManager, create_access_token,
     jwt_required, get_jwt_identity,
 )
-from models import db, User, Timetable, TimetableEntry, Friendship, FriendRequest
+from models import db, User, Timetable, TimetableEntry, Friendship, FriendRequest, CustomCourse
 
 # ── App & config ──────────────────────────────────────────────────────
 BASE_DIR     = os.path.dirname(os.path.abspath(__file__))
@@ -319,6 +319,53 @@ def get_course(code):
 
 
 # ════════════════════════════════════════
+# CUSTOM COURSES  /api/courses/custom
+# ════════════════════════════════════════
+@app.get('/api/courses/custom')
+@jwt_required()
+def get_custom_courses():
+    user = current_user()
+    return jsonify([r.to_dict() for r in CustomCourse.query.filter_by(user_id=user.id).all()])
+
+
+@app.post('/api/courses/custom')
+@jwt_required()
+def save_custom_course():
+    user = current_user()
+    data = request.get_json(silent=True) or {}
+    code = (data.get('code') or '').strip().upper()
+    name = (data.get('name') or '').strip() or code
+    if not code:
+        return err('Unit code is required')
+    row = CustomCourse.query.filter_by(user_id=user.id, code=code).first()
+    if row:
+        row.name     = name
+        row.cp       = int(data.get('cp', 0))
+        row.sems     = json.dumps(data.get('sems', ['S1']))
+        row.sessions = json.dumps(data.get('sessions', []))
+    else:
+        db.session.add(CustomCourse(
+            user_id  = user.id,
+            code     = code,
+            name     = name,
+            cp       = int(data.get('cp', 0)),
+            sems     = json.dumps(data.get('sems', ['S1'])),
+            sessions = json.dumps(data.get('sessions', [])),
+        ))
+    db.session.commit()
+    return ok()
+
+
+@app.delete('/api/courses/custom/<code>')
+@jwt_required()
+def delete_custom_course(code):
+    user = current_user()
+    CustomCourse.query.filter_by(user_id=user.id, code=code.upper()).delete()
+    db.session.commit()
+    return ok()
+
+
+# ════════════════════════════════════════
 # TIMETABLE  /api/timetable
 # ════════════════════════════════════════
 @app.get('/api/timetable')
@@ -354,18 +401,22 @@ def save_timetable():
 @app.post('/api/timetable/conflicts')
 @jwt_required()
 def timetable_conflicts():
+    user     = current_user()
     data     = request.get_json(silent=True) or {}
     selected = data.get('selected', [])
-    return jsonify({'conflicts': list(detect_conflicts(selected, load_courses()))})
+    courses  = load_courses() + [r.to_dict() for r in CustomCourse.query.filter_by(user_id=user.id).all()]
+    return jsonify({'conflicts': list(detect_conflicts(selected, courses))})
 
 
 @app.post('/api/timetable/auto-schedule')
 @jwt_required()
 def timetable_auto_schedule():
+    user     = current_user()
     data     = request.get_json(silent=True) or {}
     selected = data.get('selected', [])
     prefs    = data.get('preferences', {})
-    return jsonify({'selected': run_auto_schedule(selected, load_courses(), prefs)})
+    courses  = load_courses() + [r.to_dict() for r in CustomCourse.query.filter_by(user_id=user.id).all()]
+    return jsonify({'selected': run_auto_schedule(selected, courses, prefs)})
 
 
 # ════════════════════════════════════════

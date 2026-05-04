@@ -2,14 +2,13 @@
    selected.js — My Selection page
 ═══════════════════════════════════════════ */
 
-import API from "./utils/api.js";
+import API   from "./utils/api.js";
 import toast from "./utils/toast.js";
 import {
   DAYS,
   getColor,
   getActiveSessions,
   detectConflicts,
-  getTotalCp,
   getDaysUsed,
 } from "./utils/schedule-utils.js";
 import { updateNavBadge } from "./utils/nav.js";
@@ -25,6 +24,12 @@ document.addEventListener("DOMContentLoaded", async () => {
       API.getTimetable(),
     ]);
     selected = selected || [];
+    try {
+      const custom = await API.getCustomCourses();
+      custom.forEach(c => {
+        if (!allCourses.find(x => x.code === c.code)) allCourses.push(c);
+      });
+    } catch {}
   } catch {
     toast("Could not load data", "error");
   }
@@ -51,17 +56,12 @@ function renderSummaryBar(selected, conflicts) {
   }
   el.style.display = "";
 
-  const cp = getTotalCp(selected, allCourses);
   const days = getDaysUsed(selected, allCourses);
 
   el.innerHTML = `
     <div class="text-center px-4 py-5">
       <div class="text-[28px] font-display font-extrabold tracking-tight text-[var(--text)]">${selected.length}</div>
       <div class="text-[11px] text-[var(--text3)] uppercase tracking-widest font-mono mt-1">Units</div>
-    </div>
-    <div class="text-center px-4 py-5">
-      <div class="text-[28px] font-display font-extrabold tracking-tight text-[var(--text)]">${cp}</div>
-      <div class="text-[11px] text-[var(--text3)] uppercase tracking-widest font-mono mt-1">Credit points</div>
     </div>
     <div class="text-center px-4 py-5">
       <div class="text-[28px] font-display font-extrabold tracking-tight text-[var(--text)]">${days}</div>
@@ -108,10 +108,16 @@ function renderGrid(selected, conflicts) {
 
   grid.querySelectorAll(".remove-unit-btn").forEach((btn) => {
     btn.addEventListener("click", async () => {
-      selected = selected.filter((x) => x.code !== btn.dataset.code);
+      const code   = btn.dataset.code;
+      const course = allCourses.find(c => c.code === code);
+      selected = selected.filter(x => x.code !== code);
+      if (course?.custom) {
+        allCourses = allCourses.filter(c => c.code !== code);
+        await API.deleteCustomCourse(code);
+      }
       await API.saveTimetable({ selected });
       updateNavBadge(selected.length);
-      toast(`${btn.dataset.code} removed`);
+      toast(`${code} removed`);
       renderPage();
     });
   });
@@ -143,7 +149,6 @@ function buildUnitCard(course, altIdx, col, isConflict) {
   const tagCls =
     "inline-flex items-center px-[7px] py-[2px] rounded-md text-[10px] font-mono border border-[var(--border2)] bg-[var(--bg3)] text-[var(--text2)]";
   const tagHTML = [
-    `<span class="${tagCls}">${course.cp} cp</span>`,
     ...course.sems.map((s) => `<span class="${tagCls}">${s}</span>`),
     `<span class="${tagCls}">${course.faculty}</span>`,
     isConflict

@@ -42,6 +42,7 @@ nav.innerHTML = `
       Friends
       <span class="min-w-[16px] h-4 rounded-xl px-1 bg-[var(--accent)] text-white font-mono text-[9px] inline-flex items-center justify-center" data-badge="req" style="display:none">0</span>
     </a>
+    <a class="nav-link nav-auth-only" href="profile.html">Profile</a>
   </div>
 
   <!-- Right: User / auth -->
@@ -169,11 +170,14 @@ function markSidebarActiveLink() {
   });
 }
 
-/* ── Show/hide auth-only nav links ──────── */
-function applyAuthNavVisibility() {
-  const loggedIn = !!State.getUser();
+/* ── Redirect guests on protected nav links ─ */
+function applyAuthNavGuards() {
+  if (State.getUser()) return;
   document.querySelectorAll('.nav-auth-only').forEach(el => {
-    el.style.display = loggedIn ? '' : 'none';
+    el.addEventListener('click', e => {
+      e.preventDefault();
+      window.location.href = 'auth.html';
+    });
   });
 }
 
@@ -184,7 +188,7 @@ document.addEventListener("DOMContentLoaded", () => {
   markActiveLink();
   markSidebarActiveLink();
   renderSidebarFooter();
-  applyAuthNavVisibility();
+  applyAuthNavGuards();
 
   /* Floating trigger toggle */
   fabTrigger.addEventListener("click", () => {

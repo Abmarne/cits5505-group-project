@@ -15,11 +15,13 @@ Tokens are valid for **7 days** and are returned on login and register.
 ## Response conventions
 
 **Success**
+
 ```json
 { "ok": true }
 ```
 
 **Error**
+
 ```json
 { "message": "Description of the error" }
 ```
@@ -33,6 +35,7 @@ Tokens are valid for **7 days** and are returned on login and register.
 Check that the server is running. No authentication required.
 
 **Response `200`**
+
 ```json
 { "status": "ok" }
 ```
@@ -46,6 +49,7 @@ Check that the server is running. No authentication required.
 Authenticate with an email address or student number.
 
 **Request body**
+
 ```json
 {
   "email": "21234567@student.uwa.edu.au",
@@ -56,6 +60,7 @@ Authenticate with an email address or student number.
 > The `email` field accepts either a full email address or an 8-digit student number.
 
 **Response `200`**
+
 ```json
 {
   "user": {
@@ -81,6 +86,7 @@ Authenticate with an email address or student number.
 Create a new account. Email must be a UWA student address.
 
 **Request body**
+
 ```json
 {
   "name": "Alex Smith",
@@ -91,6 +97,7 @@ Create a new account. Email must be a UWA student address.
 ```
 
 **Response `201`**
+
 ```json
 {
   "user": { ... },
@@ -115,6 +122,7 @@ Create a new account. Email must be a UWA student address.
 Signals logout. The client should discard its stored token. JWT is stateless — no server-side invalidation occurs.
 
 **Response `200`**
+
 ```json
 { "ok": true }
 ```
@@ -126,6 +134,7 @@ Signals logout. The client should discard its stored token. JWT is stateless —
 Change the authenticated user's password.
 
 **Request body**
+
 ```json
 {
   "currentPassword": "oldpassword",
@@ -134,6 +143,7 @@ Change the authenticated user's password.
 ```
 
 **Response `200`**
+
 ```json
 { "ok": true }
 ```
@@ -153,6 +163,7 @@ Change the authenticated user's password.
 Fetch the authenticated user's profile.
 
 **Response `200`**
+
 ```json
 {
   "user": {
@@ -172,6 +183,7 @@ Fetch the authenticated user's profile.
 Update the authenticated user's name or student number. Only provided fields are updated.
 
 **Request body**
+
 ```json
 {
   "name": "Alexander Smith",
@@ -180,6 +192,7 @@ Update the authenticated user's name or student number. Only provided fields are
 ```
 
 **Response `200`**
+
 ```json
 {
   "user": { ... }
@@ -200,6 +213,7 @@ Update the authenticated user's name or student number. Only provided fields are
 Return the full list of available units. No authentication required.
 
 **Response `200`** — array of course objects
+
 ```json
 [
   {
@@ -208,9 +222,7 @@ Return the full list of available units. No authentication required.
     "faculty": "Computer Science and Software Engineering",
     "cp": 6,
     "sems": ["S1", "S2"],
-    "sessions": [
-      { "type": "LEC", "day": 0, "hour": 10, "duration": 1 }
-    ],
+    "sessions": [{ "type": "LEC", "day": 0, "hour": 10, "duration": 1 }],
     "alternatives": []
   }
 ]
@@ -240,6 +252,7 @@ Return a single course by unit code (case-insensitive).
 Fetch the authenticated user's saved timetable. Creates an empty one if none exists.
 
 **Response `200`**
+
 ```json
 {
   "id": 1,
@@ -261,6 +274,7 @@ Fetch the authenticated user's saved timetable. Creates an empty one if none exi
 Save the user's timetable. All fields are optional — only provided fields are updated.
 
 **Request body**
+
 ```json
 {
   "selected": [
@@ -274,6 +288,7 @@ Save the user's timetable. All fields are optional — only provided fields are 
 ```
 
 **Response `200`**
+
 ```json
 { "ok": true }
 ```
@@ -285,6 +300,7 @@ Save the user's timetable. All fields are optional — only provided fields are 
 Detect time conflicts in a list of selected units.
 
 **Request body**
+
 ```json
 {
   "selected": [
@@ -295,6 +311,7 @@ Detect time conflicts in a list of selected units.
 ```
 
 **Response `200`**
+
 ```json
 {
   "conflicts": ["CITS1401", "CITS1003"]
@@ -310,11 +327,10 @@ Returns an empty array if there are no conflicts.
 Automatically assign alternative time slots to minimise conflicts based on preferences.
 
 **Request body**
+
 ```json
 {
-  "selected": [
-    { "code": "CITS1401", "altIdx": 0 }
-  ],
+  "selected": [{ "code": "CITS1401", "altIdx": 0 }],
   "preferences": {
     "avoid8am": true,
     "compactDays": false,
@@ -324,11 +340,10 @@ Automatically assign alternative time slots to minimise conflicts based on prefe
 ```
 
 **Response `200`**
+
 ```json
 {
-  "selected": [
-    { "code": "CITS1401", "altIdx": 2 }
-  ]
+  "selected": [{ "code": "CITS1401", "altIdx": 2 }]
 }
 ```
 
@@ -343,6 +358,7 @@ Returns the same list with `altIdx` values updated to the best-scoring slots.
 List the authenticated user's friends.
 
 **Response `200`**
+
 ```json
 [
   {
@@ -363,6 +379,7 @@ List the authenticated user's friends.
 Remove a friend. Silently succeeds if the friendship does not exist.
 
 **Response `200`**
+
 ```json
 { "ok": true }
 ```
@@ -374,6 +391,7 @@ Remove a friend. Silently succeeds if the friendship does not exist.
 Send a friend request to another user by student number.
 
 **Request body**
+
 ```json
 {
   "studentNumber": "21345678"
@@ -381,6 +399,7 @@ Send a friend request to another user by student number.
 ```
 
 **Response `200`**
+
 ```json
 { "ok": true }
 ```
@@ -399,6 +418,7 @@ Send a friend request to another user by student number.
 List outgoing friend requests the authenticated user has sent.
 
 **Response `200`**
+
 ```json
 [
   {
@@ -419,6 +439,7 @@ List outgoing friend requests the authenticated user has sent.
 Cancel a sent friend request. Silently succeeds if the request does not exist.
 
 **Response `200`**
+
 ```json
 { "ok": true }
 ```
@@ -430,6 +451,7 @@ Cancel a sent friend request. Silently succeeds if the request does not exist.
 List incoming friend requests waiting for the authenticated user to accept or decline.
 
 **Response `200`**
+
 ```json
 [
   {
@@ -450,6 +472,7 @@ List incoming friend requests waiting for the authenticated user to accept or de
 Accept an incoming friend request. Creates a mutual friendship.
 
 **Response `200`**
+
 ```json
 { "ok": true }
 ```
@@ -466,6 +489,7 @@ Accept an incoming friend request. Creates a mutual friendship.
 Decline an incoming friend request. Silently succeeds if the request does not exist.
 
 **Response `200`**
+
 ```json
 { "ok": true }
 ```
@@ -477,6 +501,7 @@ Decline an incoming friend request. Silently succeeds if the request does not ex
 Fetch a friend's timetable. Returns `null` if the friend has no timetable or has not made it public.
 
 **Response `200`**
+
 ```json
 {
   "id": 5,
@@ -484,9 +509,7 @@ Fetch a friend's timetable. Returns `null` if the friend has no timetable or has
   "semester": "S1",
   "isPublic": true,
   "updatedAt": "2025-04-25T14:00:00Z",
-  "selected": [
-    { "code": "CITS1401", "altIdx": 0 }
-  ],
+  "selected": [{ "code": "CITS1401", "altIdx": 0 }],
   "timetableName": "Semester 1 Plan",
   "owner": {
     "name": "Jordan Lee",
@@ -505,6 +528,7 @@ Fetch a friend's timetable. Returns `null` if the friend has no timetable or has
 Look up a user by student number. Used when adding friends.
 
 **Response `200`**
+
 ```json
 {
   "id": 2,

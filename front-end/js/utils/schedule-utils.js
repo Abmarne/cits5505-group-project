@@ -88,20 +88,6 @@ function detectConflicts(selected, courses) {
 }
 
 /**
- * Total credit points across all selected units.
- *
- * @param {Array} selected - [{ code, altIdx }]
- * @param {Array} courses  - full course list
- * @returns {number}
- */
-function getTotalCp(selected, courses) {
-  return selected.reduce((sum, { code }) => {
-    const c = courses.find((x) => x.code === code);
-    return sum + (c ? c.cp : 0);
-  }, 0);
-}
-
-/**
  * Number of unique campus days across all sessions.
  *
  * @param {Array} selected - [{ code, altIdx }]
@@ -124,6 +110,5 @@ export {
   getColor,
   getActiveSessions,
   detectConflicts,
-  getTotalCp,
   getDaysUsed,
 };

@@ -32,7 +32,6 @@
           <div class="flex gap-2 flex-wrap items-center px-5 py-4 border-b border-[var(--border)]">
             <button class="filter-chip on" data-sem="S1">Sem 1</button>
             <button class="filter-chip on" data-sem="S2">Sem 2</button>
-            <button class="filter-chip" data-sem="SUM">Summer</button>
             <span class="flex-1"></span>
             <span class="font-mono text-[11px] text-[var(--text3)]" id="tableCount">— units</span>
           </div>
@@ -55,14 +54,13 @@
               <tr>
                 <th>Code</th>
                 <th>Unit name</th>
-                <th>CP</th>
                 <th>Sem</th>
                 <th>Sessions</th>
                 <th></th>
               </tr>
             </thead>
             <tbody id="courseTableBody">
-              <tr><td colspan="6" class="text-center py-8 text-[var(--text3)] italic">Loading units…</td></tr>
+              <tr><td colspan="5" class="text-center py-8 text-[var(--text3)] italic">Loading units…</td></tr>
             </tbody>
           </table>
 
@@ -97,24 +95,46 @@
             <div class="font-display text-[15px] font-bold text-[var(--text)]">Add manually</div>
           </div>
           <div class="p-5">
-            <div class="mb-4">
+            <div class="mb-3">
               <label class="block text-[12px] font-medium text-[var(--text2)] mb-1.5 tracking-[.02em]">Unit code</label>
-              <div class="flex gap-2">
-                <input
-                  class="flex-1 py-2.5 px-[14px] bg-[var(--bg3)] border border-[var(--border2)] rounded text-[var(--text)] text-[14px] outline-none transition-colors focus:border-[var(--accent)] placeholder:text-[var(--text3)] uppercase"
-                  type="text" id="manualCode" placeholder="e.g. CITS3001">
-                <button class="btn btn-primary" id="addManualBtn">Add</button>
-              </div>
+              <input
+                class="w-full py-2.5 px-[14px] bg-[var(--bg3)] border border-[var(--border2)] rounded text-[var(--text)] text-[14px] outline-none transition-colors focus:border-[var(--accent)] placeholder:text-[var(--text3)] uppercase"
+                type="text" id="manualCode" placeholder="e.g. CITS3001">
             </div>
-            <div class="mb-4">
+            <div class="mb-3">
+              <label class="block text-[12px] font-medium text-[var(--text2)] mb-1.5 tracking-[.02em]">Unit name</label>
+              <input
+                class="w-full py-2.5 px-[14px] bg-[var(--bg3)] border border-[var(--border2)] rounded text-[var(--text)] text-[13px] outline-none transition-colors focus:border-[var(--accent)] placeholder:text-[var(--text3)]"
+                type="text" id="manualName" placeholder="e.g. Introduction to Robotics">
+            </div>
+            <div class="mb-3">
               <label class="block text-[12px] font-medium text-[var(--text2)] mb-1.5 tracking-[.02em]">Semester</label>
-              <div class="flex gap-1.5 mb-3">
+              <div class="flex gap-1.5">
                 <button class="sem-btn on" data-sem="S1">Sem 1</button>
                 <button class="sem-btn" data-sem="S2">Sem 2</button>
-                <button class="sem-btn" data-sem="SUM">Summer</button>
               </div>
             </div>
-            <p class="text-[11px] text-[var(--text3)] leading-[1.5]">Can't find your unit? Add it manually and we'll try to fetch its timetable from UWA when connected to the backend.</p>
+            <div class="mb-4">
+              <label class="block text-[12px] font-medium text-[var(--text2)] mb-1.5 tracking-[.02em]">Sessions</label>
+              <div id="sessionList" class="flex flex-col gap-1.5 mb-2">
+                <div class="session-row flex gap-1 items-center">
+                  <select class="sess-type sess-input">
+                    <option>LEC</option><option>TUT</option><option>LAB</option>
+                  </select>
+                  <select class="sess-day sess-input">
+                    <option value="0">Mon</option><option value="1">Tue</option>
+                    <option value="2">Wed</option><option value="3">Thu</option>
+                    <option value="4">Fri</option>
+                  </select>
+                  <input type="number" class="sess-start sess-input sess-num" min="8" max="19" value="9" title="Start hour">
+                  <span class="sess-sep">–</span>
+                  <input type="number" class="sess-end sess-input sess-num" min="9" max="20" value="11" title="End hour">
+                </div>
+              </div>
+              <button type="button" id="addSessionBtn" class="text-[11px] text-[var(--accent)] font-medium bg-transparent border-0 cursor-pointer hover:underline p-0 leading-none">+ Add session</button>
+            </div>
+            <button class="btn btn-primary btn-full mb-3" id="addManualBtn">Add unit</button>
+            <p class="text-[11px] text-[var(--text3)] leading-[1.5]">Can't find your unit? Add it manually with custom session times.</p>
           </div>
         </div>
 

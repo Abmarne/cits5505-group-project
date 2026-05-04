@@ -74,8 +74,8 @@
         },
         "sems": {
           "type": "array",
-          "items": { "enum": ["S1", "S2", "SUM"] },
-          "description": "Semesters in which the unit is offered. S1 = Semester 1, S2 = Semester 2, SUM = Summer school.",
+          "items": { "enum": ["S1", "S2"] },
+          "description": "Semesters in which the unit is offered. S1 = Semester 1, S2 = Semester 2.",
           "example": ["S1", "S2"]
         },
         "sessions": {
@@ -192,7 +192,7 @@
         },
         "semester": {
           "type": "string",
-          "enum": ["S1", "S2", "SUM"],
+          "enum": ["S1", "S2"],
           "description": "The semester this timetable is for.",
           "example": "S1"
         },
@@ -244,7 +244,7 @@
         },
         "semester": {
           "type": "string",
-          "enum": ["S1", "S2", "SUM"],
+          "enum": ["S1", "S2"],
           "description": "Currently active semester filter."
         },
         "user": {
@@ -344,9 +344,8 @@
 
   "semester_reference": {
     "$description": "Semester codes used in Course.sems, Timetable.semester, and filter chips.",
-    "S1":  "Semester 1 (February – June)",
-    "S2":  "Semester 2 (July – November)",
-    "SUM": "Summer School (November – February)"
+    "S1": "Semester 1 (February – June)",
+    "S2": "Semester 2 (July – November)"
   },
 
   "session_type_reference": {

@@ -44,6 +44,14 @@ async function loadCourses() {
     console.error(err);
     toast("Could not load unit data", "error");
   }
+  if (State.getUser()) {
+    try {
+      const custom = await API.getCustomCourses();
+      custom.forEach(c => {
+        if (!allCourses.find(x => x.code === c.code)) allCourses.push(c);
+      });
+    } catch {}
+  }
 }
 
 async function loadTimetable() {
@@ -111,7 +119,7 @@ function renderTable() {
 
   tbody.innerHTML = slice.length
     ? slice.map(buildTableRow).join("")
-    : `<tr><td colspan="6" style="text-align:center;padding:32px;color:var(--text3);font-style:italic">No units found</td></tr>`;
+    : `<tr><td colspan="5" style="text-align:center;padding:32px;color:var(--text3);font-style:italic">No units found</td></tr>`;
 
   tbody.querySelectorAll(".add-row-btn").forEach((btn) => {
     btn.addEventListener("click", () => toggleCourse(btn.dataset.code));
@@ -153,7 +161,6 @@ function buildTableRow(c) {
       <div class="font-medium text-[13px] text-[var(--text)]">${c.name}</div>
       <div class="text-[11px] text-[var(--text3)] mt-0.5">${c.faculty}</div>
     </td>
-    <td><span class="font-mono text-[10px] px-[7px] py-0.5 rounded-md border border-[var(--border2)] bg-[var(--bg3)] text-[var(--text2)] whitespace-nowrap">${c.cp} cp</span></td>
     <td><div class="flex flex-wrap gap-1">${sems}</div></td>
     <td><div class="flex flex-wrap gap-1">${tags}</div></td>
     <td>
@@ -192,6 +199,11 @@ function toggleCourse(code) {
   const wasAdded = selected.some((x) => x.code === code);
   if (wasAdded) {
     selected = selected.filter((x) => x.code !== code);
+    const course = allCourses.find(c => c.code === code);
+    if (course?.custom) {
+      allCourses = allCourses.filter(c => c.code !== code);
+      API.deleteCustomCourse(code);  // fire-and-forget
+    }
     toast(`${code} removed`);
   } else {
     selected = [...selected, { code, altIdx: 0 }];
@@ -238,7 +250,6 @@ function renderBasket() {
           <div class="font-mono text-[11px] font-medium text-[var(--text)]">${code}</div>
           <div class="text-[11px] text-[var(--text3)] truncate">${c ? c.name : "Custom unit"}</div>
         </div>
-        <div class="text-[10px] font-mono text-[var(--text3)] whitespace-nowrap">${c ? c.cp + " cp" : ""}</div>
         <button class="w-5 h-5 rounded flex items-center justify-center border-0 bg-transparent text-[var(--text3)] text-[14px] cursor-pointer hover:text-[var(--red)] hover:bg-[var(--red-bg)] flex-shrink-0 rm-btn" data-code="${code}" aria-label="Remove ${code}">×</button>
       </div>`;
     })
@@ -249,8 +260,58 @@ function renderBasket() {
   });
 }
 
+/* ── Session row helpers ─────────────────── */
+function makeSessionRow(removable) {
+  const row = document.createElement("div");
+  row.className = "session-row flex gap-1 items-center";
+  row.innerHTML = `
+    <select class="sess-type sess-input">
+      <option>LEC</option><option>TUT</option><option>LAB</option>
+    </select>
+    <select class="sess-day sess-input">
+      <option value="0">Mon</option><option value="1">Tue</option>
+      <option value="2">Wed</option><option value="3">Thu</option>
+      <option value="4">Fri</option>
+    </select>
+    <input type="number" class="sess-start sess-input sess-num" min="8" max="19" value="9" title="Start hour">
+    <span class="sess-sep">–</span>
+    <input type="number" class="sess-end sess-input sess-num" min="9" max="20" value="11" title="End hour">
+    ${removable ? '<button type="button" class="sess-rm" aria-label="Remove row">×</button>' : ''}
+  `;
+  if (removable) {
+    row.querySelector(".sess-rm").addEventListener("click", () => row.remove());
+  }
+  return row;
+}
+
+function getSessionRows() {
+  return [...document.querySelectorAll("#sessionList .session-row")].map(row => {
+    const type  = row.querySelector(".sess-type").value;
+    const day   = parseInt(row.querySelector(".sess-day").value);
+    const start = parseInt(row.querySelector(".sess-start").value);
+    const end   = parseInt(row.querySelector(".sess-end").value);
+    return { type, day, hour: start, duration: Math.max(1, end - start) };
+  }).filter(s => s.duration > 0);
+}
+
+function resetSessionRows() {
+  const list = document.getElementById("sessionList");
+  if (!list) return;
+  while (list.children.length > 1) list.removeChild(list.lastChild);
+  const first = list.firstElementChild;
+  if (first) {
+    first.querySelector(".sess-type").value  = "LEC";
+    first.querySelector(".sess-day").value   = "0";
+    first.querySelector(".sess-start").value = "9";
+    first.querySelector(".sess-end").value   = "11";
+  }
+}
+
 /* ── Manual unit add ─────────────────────── */
 function bindManualAdd() {
+  document.getElementById("addSessionBtn")?.addEventListener("click", () => {
+    document.getElementById("sessionList")?.appendChild(makeSessionRow(true));
+  });
   document.getElementById("addManualBtn")?.addEventListener("click", addManual);
   document.getElementById("manualCode")?.addEventListener("keydown", (e) => {
     if (e.key === "Enter") addManual();
@@ -258,26 +319,41 @@ function bindManualAdd() {
 
   document.querySelectorAll(".sem-btn").forEach((btn) => {
     btn.addEventListener("click", () => {
-      document
-        .querySelectorAll(".sem-btn")
-        .forEach((b) => b.classList.remove("on"));
+      document.querySelectorAll(".sem-btn").forEach((b) => b.classList.remove("on"));
       btn.classList.add("on");
     });
   });
 }
 
 async function addManual() {
-  const input = document.getElementById("manualCode");
-  const code = input.value.trim().toUpperCase();
-  if (!code) return;
+  const codeInput = document.getElementById("manualCode");
+  const nameInput = document.getElementById("manualName");
+  const code = codeInput.value.trim().toUpperCase();
+  if (!code) {
+    toast("Enter a unit code", "error");
+    return;
+  }
   if (selected.some((x) => x.code === code)) {
     toast(`${code} is already in your selection`);
     return;
   }
+
+  const name     = nameInput?.value.trim() || code;
+  const sem      = document.querySelector(".sem-btn.on")?.dataset.sem || "S1";
+  const sessions = getSessionRows();
+
+  if (!allCourses.find((c) => c.code === code)) {
+    const custom = { code, name, faculty: "Custom", sems: [sem], sessions, alternatives: [], custom: true };
+    allCourses.push(custom);
+    await API.saveCustomCourse(custom);
+  }
+
   selected = [...selected, { code, altIdx: 0 }];
   await saveSelected();
   renderBasket();
   renderTable();
-  toast(`${code} added manually`, "success");
-  input.value = "";
+  toast(`${code} added`, "success");
+  codeInput.value = "";
+  if (nameInput) nameInput.value = "";
+  resetSessionRows();
 }

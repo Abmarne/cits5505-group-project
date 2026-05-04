@@ -3,10 +3,10 @@
    (merged from selected.js + schedule.js)
 ═══════════════════════════════════════════ */
 
-import State from './utils/state.js';
+import State  from './utils/state.js';
 import API from './utils/api.js';
 import toast from './utils/toast.js';
-import { DAYS, getColor, getActiveSessions, getTotalCp, getDaysUsed } from './utils/schedule-utils.js';
+import { DAYS, getColor, getActiveSessions, getDaysUsed } from './utils/schedule-utils.js';
 import { updateNavBadge } from './utils/nav.js';
 import './utils/components.js';
 
@@ -31,6 +31,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     ]);
     selected      = selected      || [];
     timetableName = timetableName || '';
+    try {
+      const custom = await API.getCustomCourses();
+      custom.forEach(c => {
+        if (!allCourses.find(x => x.code === c.code)) allCourses.push(c);
+      });
+    } catch {}
   } catch {
     toast('Could not load data', 'error');
   }
@@ -75,17 +81,12 @@ function renderSummaryBar(conflicts) {
   if (!selected.length) { el.style.display = 'none'; return; }
   el.style.display = '';
 
-  const cp   = getTotalCp(selected, allCourses);
   const days = getDaysUsed(selected, allCourses);
 
   el.innerHTML = `
     <div class="text-center px-4 py-5">
       <div class="text-[28px] font-display font-extrabold tracking-tight text-[var(--text)]">${selected.length}</div>
       <div class="text-[11px] text-[var(--text3)] uppercase tracking-widest font-mono mt-1">Units</div>
-    </div>
-    <div class="text-center px-4 py-5">
-      <div class="text-[28px] font-display font-extrabold tracking-tight text-[var(--text)]">${cp}</div>
-      <div class="text-[11px] text-[var(--text3)] uppercase tracking-widest font-mono mt-1">Credit points</div>
     </div>
     <div class="text-center px-4 py-5">
       <div class="text-[28px] font-display font-extrabold tracking-tight text-[var(--text)]">${days}</div>
@@ -229,8 +230,13 @@ function renderUnitCards(conflicts) {
 
   grid.querySelectorAll('.remove-unit-btn').forEach(btn => {
     btn.addEventListener('click', async () => {
-      const code = btn.dataset.code;
-      selected = selected.filter(x => x.code !== code);
+      const code   = btn.dataset.code;
+      const course = allCourses.find(c => c.code === code);
+      selected     = selected.filter(x => x.code !== code);
+      if (course?.custom) {
+        allCourses = allCourses.filter(c => c.code !== code);
+        await API.deleteCustomCourse(code);
+      }
       toast(`${code} removed`);
       await saveAndRefresh();
     });
@@ -251,7 +257,6 @@ function buildUnitCard(course, altIdx, col, isConflict) {
 
   const tagCls  = 'inline-flex items-center px-[7px] py-[2px] rounded-md text-[10px] font-mono border border-[var(--border2)] bg-[var(--bg3)] text-[var(--text2)]';
   const tagHTML = [
-    `<span class="${tagCls}">${course.cp} cp</span>`,
     ...course.sems.map(s => `<span class="${tagCls}">${s}</span>`),
     `<span class="${tagCls}">${course.faculty}</span>`,
     isConflict ? `<span class="inline-flex items-center px-[7px] py-[2px] rounded-md text-[10px] font-mono border border-[rgba(247,111,111,.35)] bg-[var(--red-bg)] text-[var(--red)]">Conflict</span>` : '',

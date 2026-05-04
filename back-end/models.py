@@ -10,6 +10,7 @@ friendships      — accepted friend pairs (bidirectional)
 friend_requests  — pending / declined requests
 """
 
+import json
 from datetime import datetime
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -136,6 +137,35 @@ class Friendship(db.Model):
             Friendship(user_id=user_id,   friend_id=friend_id),
             Friendship(user_id=friend_id, friend_id=user_id),
         ]
+
+
+# ── CustomCourse ──────────────────────────────────────────────────────
+class CustomCourse(db.Model):
+    __tablename__ = 'custom_courses'
+
+    id       = db.Column(db.Integer,     primary_key=True)
+    user_id  = db.Column(db.Integer,     db.ForeignKey('users.id'), nullable=False)
+    code     = db.Column(db.String(20),  nullable=False)
+    name     = db.Column(db.String(200), nullable=False)
+    cp       = db.Column(db.Integer,     default=0)
+    sems     = db.Column(db.Text,        nullable=False, default='["S1"]')
+    sessions = db.Column(db.Text,        nullable=False, default='[]')
+
+    __table_args__ = (
+        db.UniqueConstraint('user_id', 'code', name='uq_user_custom_course'),
+    )
+
+    def to_dict(self) -> dict:
+        return {
+            'code':         self.code,
+            'name':         self.name,
+            'cp':           self.cp,
+            'faculty':      'Custom',
+            'sems':         json.loads(self.sems),
+            'sessions':     json.loads(self.sessions),
+            'alternatives': [],
+            'custom':       True,
+        }
 
 
 # ── FriendRequest ─────────────────────────────────────────────────────

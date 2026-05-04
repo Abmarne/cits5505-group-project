@@ -100,6 +100,21 @@ const REAL = {
     return request(`/api/courses/${code}`);
   },
 
+  async getCustomCourses() {
+    return request('/api/courses/custom');
+  },
+
+  async saveCustomCourse(course) {
+    return request('/api/courses/custom', {
+      method: 'POST',
+      body: JSON.stringify(course),
+    });
+  },
+
+  async deleteCustomCourse(code) {
+    return request(`/api/courses/custom/${code}`, { method: 'DELETE' });
+  },
+
   /* ════════════════════════════════════════
      TIMETABLE
   ════════════════════════════════════════ */
