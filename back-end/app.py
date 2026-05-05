@@ -1,14 +1,21 @@
 """
-app.py — UWA Planner Flask backend
+app.py — UWA Planner Flask application entry point
 
-Route modules:
-  auth.py       /api/auth/*  /api/health
-  users.py      /api/profile  /api/users/*
-  scheduling.py /api/timetables  /api/friends  /api/courses
+Blueprints
+  auth.py       →  /api/health  /api/auth/*
+  users.py      →  /api/profile  /api/users/*
+  timetables.py →  /api/timetables/*
+  friends.py    →  /api/friends/*
+  courses.py    →  /api/courses/*
 
-Run:
-    pip install -r requirements.txt
-    python app.py
+Other modules
+  models.py  — SQLAlchemy models (User, Timetable, Friendship, …)
+  utils.py   — Shared helpers (current_user, ok, err, load_courses, …)
+  seed.py    — Demo data, runs automatically on every startup
+
+Start the server
+    cd back-end
+    python app.py          # also seeds the database
 """
 
 import os
@@ -18,7 +25,10 @@ from flask_jwt_extended import JWTManager
 from models import db, User, Friendship
 from utils import err
 from auth import auth_bp
-from api import api_bp
+from users import users_bp
+from timetables import timetables_bp
+from friends import friends_bp
+from courses import courses_bp
 from seed import seed
 
 # ── App & config ──────────────────────────────────────────────────────
@@ -36,7 +46,10 @@ app.config.update(
 db.init_app(app)
 jwt = JWTManager(app)
 app.register_blueprint(auth_bp)
-app.register_blueprint(api_bp)
+app.register_blueprint(users_bp)
+app.register_blueprint(timetables_bp)
+app.register_blueprint(friends_bp)
+app.register_blueprint(courses_bp)
 
 # ── CORS ──────────────────────────────────────────────────────────────
 _ALLOWED_ORIGINS = {
