@@ -33,7 +33,10 @@ cits5505-group-project/
 ├── back-end/
 │   ├── app.py          # Flask app, CORS, error handlers, startup
 │   ├── auth.py         # /api/auth/*  /api/health
-│   ├── api.py          # /api/profile  /api/timetables  /api/friends  /api/courses
+│   ├── courses.py      # /api/courses
+│   ├── friends.py      # /api/friends  
+│   ├── timetables.py   # /api/timetables
+│   ├── users.py        # /api/profile  /
 │   ├── models.py       # SQLAlchemy models
 │   ├── utils.py        # Shared helpers
 │   ├── seed.py         # Demo data (auto-runs on startup)
