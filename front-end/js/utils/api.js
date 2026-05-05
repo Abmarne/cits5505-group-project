@@ -1,16 +1,12 @@
 /* ═══════════════════════════════════════════
-   api.js — API entry point
-
-   Two-line switch to go live:
-     1. Set USE_MOCK = false
-     2. Set BASE_URL to your Flask server origin
-
-   Pages always import from this file only.
+   api.js — API entry point (Flask backend)
 ═══════════════════════════════════════════ */
 
-const BASE_URL = 'http://localhost:5000';  // ← Flask dev server
+import State from './state.js';
 
-/* ── Real fetch helpers ────────────────── */
+const BASE_URL = 'http://localhost:5000';
+
+/* ── Fetch helpers ─────────────────────── */
 function getToken() {
   try { return JSON.parse(localStorage.getItem('uwa_planner_user'))?.token ?? null; } catch { return null; }
 }
@@ -22,8 +18,6 @@ async function request(path, options = {}) {
   const res = await fetch(BASE_URL + path, { ...options, headers });
   if (!res.ok) {
     const body = await res.json().catch(() => ({ message: res.statusText }));
-    // Only auto-logout when we sent a token that the server rejected.
-    // A plain 401 with no token sent (e.g. wrong password) should not redirect.
     if (res.status === 401 && token) {
       localStorage.removeItem('uwa_planner_user');
       window.location.href = 'auth.html';
@@ -38,8 +32,7 @@ async function nullable(fn) {
   try { return await fn(); } catch { return null; }
 }
 
-/* ── Real API (Flask backend) ──────────── */
-const REAL = {
+const API = {
 
   /* ════════════════════════════════════════
      AUTH
@@ -116,36 +109,71 @@ const REAL = {
   },
 
   /* ════════════════════════════════════════
-     TIMETABLE
+     TIMETABLES (multi)
   ════════════════════════════════════════ */
 
-  async getTimetable() {
-    return request('/api/timetable');
+  async getTimetables() {
+    return request('/api/timetables');
   },
 
-  async saveTimetable({ selected, semester, name, isPublic }) {
-    return request('/api/timetable', {
+  async createTimetable({ name, semester = 'S1' } = {}) {
+    return request('/api/timetables', {
       method: 'POST',
-      body: JSON.stringify({ selected, semester, name, isPublic }),
+      body: JSON.stringify({ name, semester }),
     });
   },
 
-  /* ════════════════════════════════════════
-     SCHEDULING
-  ════════════════════════════════════════ */
+  async getTimetableById(id) {
+    return request(`/api/timetables/${id}`);
+  },
 
-  async detectConflicts(selected) {
-    return request('/api/timetable/conflicts', {
+  async updateTimetable(id, data) {
+    return request(`/api/timetables/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  },
+
+  async deleteTimetable(id) {
+    return request(`/api/timetables/${id}`, { method: 'DELETE' });
+  },
+
+  async detectConflicts(ttId, selected) {
+    return request(`/api/timetables/${ttId}/conflicts`, {
       method: 'POST',
       body: JSON.stringify({ selected }),
     });
   },
 
-  async autoSchedule({ selected, preferences }) {
-    return request('/api/timetable/auto-schedule', {
+  async autoSchedule(ttId, { selected, preferences }) {
+    return request(`/api/timetables/${ttId}/auto-schedule`, {
       method: 'POST',
       body: JSON.stringify({ selected, preferences }),
     });
+  },
+
+  /* ── Backwards-compat wrappers (courses.js uses these) ── */
+
+  async getTimetable() {
+    let id = State.getActiveTimetableId();
+    if (id) {
+      try { return await this.getTimetableById(id); }
+      catch { State.setActiveTimetableId(null); }
+    }
+    const tts = await this.getTimetables();
+    if (!tts?.length) return { selected: [], isPublic: false, name: 'My Timetable', id: null };
+    State.setActiveTimetableId(tts[0].id);
+    return this.getTimetableById(tts[0].id);
+  },
+
+  async saveTimetable(data) {
+    let id = State.getActiveTimetableId();
+    if (!id) {
+      const tt = await this.createTimetable({ name: 'My Timetable' });
+      id = tt.id;
+      State.setActiveTimetableId(id);
+    }
+    return this.updateTimetable(id, data);
   },
 
   /* ════════════════════════════════════════
@@ -187,8 +215,8 @@ const REAL = {
     return request(`/api/friends/requests/${studentNumber}`, { method: 'DELETE' });
   },
 
-  async getFriendTimetable(studentNumber) {
-    return nullable(() => request(`/api/friends/${studentNumber}/timetable`));
+  async getFriendTimetables(studentNumber) {
+    return nullable(() => request(`/api/friends/${studentNumber}/timetables`));
   },
 
   /* ════════════════════════════════════════
@@ -201,4 +229,4 @@ const REAL = {
 
 };
 
-export default REAL;
+export default API;

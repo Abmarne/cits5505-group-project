@@ -6,8 +6,9 @@ UWA Timetable Planner is a web application that helps University of Western Aust
 
 Key features:
 - **Browse units** — search and filter UWA units by semester, faculty, or code
-- **Build a schedule** — drag-and-drop alternative time slots, auto-schedule to minimise conflicts
+- **Build a schedule** — swap alternative time slots, auto-schedule to minimise conflicts
 - **Friend system** — send friend requests, view friends' timetables, and compare schedules
+- **Custom units** — add units not in the system with your own session times
 - **Account management** — register with a UWA student number, update profile, change password
 
 The frontend is a static multi-page app (HTML/CSS/JS) served by Python's built-in HTTP server. The backend is a Flask REST API with SQLite for storage and JWT for authentication.
@@ -25,23 +26,62 @@ The frontend is a static multi-page app (HTML/CSS/JS) served by Python's built-i
 
 ---
 
-## Launching the application
+## Prerequisites
 
-You need **two terminals** running simultaneously.
+| Tool | Version | Download |
+|------|---------|----------|
+| Python | 3.11+ | https://www.python.org/downloads/ |
+| Node.js | 18+ | https://nodejs.org/ |
 
-### Prerequisites
+---
 
-- Python 3.11+
-- Node.js 18+ (for the one-time Tailwind CSS build)
+## Setup & launch
 
-### Terminal 1 — Backend
+You need **two terminals** running simultaneously — one for the backend, one for the frontend.
+
+### Windows
+
+**Terminal 1 — Backend**
+
+```cmd
+cd back-end
+
+:: Create and activate a virtual environment (first time only)
+python -m venv venv
+venv\Scripts\activate
+
+:: Install dependencies (first time only)
+python -m pip install -r requirements.txt
+
+:: Start the Flask server
+python app.py
+```
+
+**Terminal 2 — Frontend**
+
+```cmd
+cd front-end
+
+:: Install and build Tailwind CSS (first time only)
+npm install
+npm run build
+
+:: Serve the frontend
+python -m http.server 5500
+```
+
+---
+
+### macOS / Linux
+
+**Terminal 1 — Backend**
 
 ```bash
 cd back-end
 
 # Create and activate a virtual environment (first time only)
-python -m venv venv
-source venv/bin/activate        # Windows: venv\Scripts\activate
+python3 -m venv venv
+source venv/bin/activate
 
 # Install dependencies (first time only)
 pip install -r requirements.txt
@@ -50,9 +90,7 @@ pip install -r requirements.txt
 python app.py
 ```
 
-The server runs at **http://localhost:5000**. The database is created automatically on first run.
-
-### Terminal 2 — Frontend
+**Terminal 2 — Frontend**
 
 ```bash
 cd front-end
@@ -62,21 +100,25 @@ npm install
 npm run build
 
 # Serve the frontend
-python -m http.server 5500
+python3 -m http.server 5500
 ```
 
-Open **http://localhost:5500** in your browser.
+---
 
-> Use Python's built-in HTTP server rather than VS Code Live Server. Live Server watches all files and triggers a page reload every time Flask writes to the database.
+Open **http://localhost:5500** in your browser. The Flask API runs at **http://localhost:5000** and the database (`planner.db`) is created automatically on first run.
 
-### Rebuilding CSS
+> **Use Python's built-in HTTP server, not VS Code Live Server.** Live Server watches all files and triggers a page reload every time Flask writes to the database.
 
-The compiled Tailwind CSS is not tracked in git. After cloning, or whenever you add new Tailwind classes, regenerate it:
+---
+
+## Rebuilding CSS
+
+The compiled Tailwind CSS file is not tracked in git. After cloning, or whenever you add new Tailwind classes, regenerate it:
 
 ```bash
 cd front-end
-npm run build        # one-off build
-npm run watch        # rebuild automatically while developing
+npm run build      # one-off build
+npm run watch      # rebuild automatically while developing
 ```
 
 ---

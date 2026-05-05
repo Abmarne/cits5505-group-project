@@ -87,20 +87,11 @@
           <p class="text-[11px] text-[var(--text3)] leading-[1.5] mt-3">Enter a student number to send a request. They must accept before appearing in your friends list.</p>
         </div>
 
-        <!-- Your privacy status -->
+        <!-- Your timetable link -->
         <div class="bg-[var(--bg2)] border border-[var(--border)] rounded-xl p-5">
           <div class="font-display text-[15px] font-bold text-[var(--text)] mb-1">Your timetable</div>
-          <div class="text-[13px] text-[var(--text2)] mb-4">Control who can see your schedule.</div>
-
-          <div id="myPrivacyStatus">
-            <div class="flex items-center justify-between text-[13px]">
-              <span class="text-[var(--text2)]">Visible to friends</span>
-              <span id="myPublicBadge" class="inline-flex items-center gap-1 font-mono text-[10px] px-[7px] py-0.5 rounded-lg bg-[var(--bg3)] border border-[var(--border2)] text-[var(--text3)]">🔒 Private</span>
-            </div>
-            <a class="btn btn-sm w-full justify-center mt-3" href="schedule.html">
-              Manage in Schedule →
-            </a>
-          </div>
+          <div class="text-[13px] text-[var(--text2)] mb-4">Manage sharing in the Schedule page.</div>
+          <a class="btn btn-sm w-full justify-center" href="schedule.html">Go to Schedule →</a>
         </div>
 
       </div>
@@ -121,6 +112,9 @@
         </div>
         <button class="bg-transparent border-none text-[var(--text3)] text-[22px] leading-none cursor-pointer hover:text-[var(--text)]" id="ttModalClose">×</button>
       </div>
+
+      <!-- Tab row (shown when friend has multiple public timetables) -->
+      <div id="ttModalTabs" class="px-5 py-2 border-b border-[var(--border)] flex gap-2 overflow-x-auto" style="display:none!important"></div>
 
       <!-- Timetable grid (read-only) -->
       <div class="overflow-auto flex-1">

@@ -1,11 +1,9 @@
 /* ═══════════════════════════════════════════
    state.js — User session (localStorage)
-
-   Only stores who is logged in.
-   All other data lives in the API layer.
 ═══════════════════════════════════════════ */
 
-const STORE_KEY = 'uwa_planner_user';
+const STORE_KEY    = 'uwa_planner_user';
+const ACTIVE_TT_KEY = 'uwa_planner_active_tt';
 
 const State = {
   getUser() {
@@ -16,6 +14,13 @@ const State = {
   },
   clearUser() {
     localStorage.removeItem(STORE_KEY);
+  },
+  getActiveTimetableId() {
+    try { return JSON.parse(localStorage.getItem(ACTIVE_TT_KEY)); } catch { return null; }
+  },
+  setActiveTimetableId(id) {
+    if (id == null) localStorage.removeItem(ACTIVE_TT_KEY);
+    else localStorage.setItem(ACTIVE_TT_KEY, JSON.stringify(id));
   },
 };
 

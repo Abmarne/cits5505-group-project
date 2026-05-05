@@ -17,24 +17,26 @@ let allCourses      = [];
 let friends         = [];
 let pendingRequests = [];
 let sentRequests    = [];
-let myTimetable     = { selected: [], isPublic: false, name: '' };
+
+// Modal state
+let modalTimetables = [];   // all public timetables for currently open friend
+let modalActiveIdx  = 0;
 
 document.addEventListener('DOMContentLoaded', async () => {
   if (!State.getUser()) { window.location.href = 'auth.html'; return; }
 
   try {
-    [allCourses, friends, pendingRequests, sentRequests, myTimetable] = await Promise.all([
+    [allCourses, friends, pendingRequests, sentRequests] = await Promise.all([
       API.getCourses(),
       API.getFriends(),
       API.getPendingRequests(),
       API.getSentRequests(),
-      API.getTimetable(),
     ]);
   } catch {
     toast('Could not load data', 'error');
   }
 
-  updateNavBadge(myTimetable.selected?.length || 0);
+  updateNavBadge(0);
   renderRequestBadge();
   checkAuth();
   renderPage();
@@ -47,7 +49,6 @@ function checkAuth() {
   if (!State.getUser()) {
     document.getElementById('guestBanner')?.classList.remove('hidden');
   }
-  updatePrivacyStatus();
 }
 
 /* ── Request badge in nav ────────────────── */
@@ -176,7 +177,6 @@ function renderFriends() {
         </div>
         <div class="flex items-center gap-2 flex-shrink-0">
           <button class="btn btn-sm btn-primary view-tt-btn" data-sn="${f.studentNumber}" style="display:none">View Timetable</button>
-          <button class="btn btn-sm" data-sn="${f.studentNumber}" data-private="1" style="opacity:.4;cursor:not-allowed;display:none" disabled title="This friend's timetable is private">Private</button>
           <button class="btn btn-sm btn-danger remove-friend-btn" data-sn="${f.studentNumber}" data-name="${f.name}" title="Remove friend">✕</button>
         </div>
       </div>`;
@@ -184,19 +184,15 @@ function renderFriends() {
 
   // Load each friend's timetable visibility asynchronously
   friends.forEach(f => {
-    API.getFriendTimetable(f.studentNumber).then(pub => {
-      const badge = list.querySelector(`.tt-status-badge[data-sn="${f.studentNumber}"]`);
-      if (badge) badge.innerHTML = pub
-        ? `<span class="${pubBadgeCls}">🌐 Public</span>`
+    API.getFriendTimetables(f.studentNumber).then(tts => {
+      const hasPublic = tts?.length > 0;
+      const badge     = list.querySelector(`.tt-status-badge[data-sn="${f.studentNumber}"]`);
+      if (badge) badge.innerHTML = hasPublic
+        ? `<span class="${pubBadgeCls}">🌐 Public (${tts.length})</span>`
         : `<span class="${privBadgeCls}">🔒 Private</span>`;
 
-      const viewBtn    = list.querySelector(`.view-tt-btn[data-sn="${f.studentNumber}"]`);
-      const privateBtn = list.querySelector(`[data-private="1"][data-sn="${f.studentNumber}"]`);
-      if (pub) {
-        viewBtn?.removeAttribute('style');
-      } else {
-        privateBtn?.removeAttribute('style');
-      }
+      const viewBtn = list.querySelector(`.view-tt-btn[data-sn="${f.studentNumber}"]`);
+      if (viewBtn) viewBtn.style.display = hasPublic ? '' : 'none';
     });
   });
 
@@ -212,16 +208,6 @@ function renderFriends() {
       renderPage();
     });
   });
-}
-
-/* ── Privacy status (right sidebar) ─────── */
-function updatePrivacyStatus() {
-  const badge = document.getElementById('myPublicBadge');
-  if (!badge) return;
-  badge.className   = myTimetable.isPublic
-    ? 'inline-flex items-center gap-1 font-mono text-[10px] px-[7px] py-0.5 rounded-lg bg-[var(--green-bg)] border border-[rgba(45,212,160,.3)] text-[var(--green)]'
-    : 'inline-flex items-center gap-1 font-mono text-[10px] px-[7px] py-0.5 rounded-lg bg-[var(--bg3)] border border-[var(--border2)] text-[var(--text3)]';
-  badge.textContent = myTimetable.isPublic ? '🌐 Public' : '🔒 Private';
 }
 
 /* ── Reload social data after mutations ──── */
@@ -298,24 +284,62 @@ function bindModal() {
 }
 
 async function openTimetableModal(studentNumber) {
-  const pub = await API.getFriendTimetable(studentNumber);
-  if (!pub) { toast('Timetable not available', 'error'); return; }
+  const tts = await API.getFriendTimetables(studentNumber);
+  if (!tts?.length) { toast('No public timetables', 'error'); return; }
 
-  document.getElementById('ttModalAvatar').textContent = pub.owner?.initials || '?';
-  document.getElementById('ttModalName').textContent   = pub.owner?.name    || 'Friend';
-  document.getElementById('ttModalMeta').textContent   =
-    `${pub.semester || 'S1'} · ${pub.timetableName || 'Timetable'} · Public`;
+  modalTimetables = tts;
+  modalActiveIdx  = 0;
+
+  const owner = tts[0].owner || {};
+  document.getElementById('ttModalAvatar').textContent = owner.initials || '?';
+  document.getElementById('ttModalName').textContent   = owner.name    || 'Friend';
+
+  renderModalTabs();
+  renderModalTimetable(0);
+  document.getElementById('ttModal')?.classList.add('open');
+}
+
+function renderModalTabs() {
+  const tabBar = document.getElementById('ttModalTabs');
+  if (!tabBar) return;
+
+  if (modalTimetables.length <= 1) {
+    tabBar.style.setProperty('display', 'none', 'important');
+    return;
+  }
+
+  tabBar.style.removeProperty('display');
+  tabBar.innerHTML = modalTimetables.map((tt, i) => `
+    <button class="tt-modal-tab${i === modalActiveIdx ? ' active' : ''}" data-idx="${i}">
+      ${escHtml(tt.name || 'Timetable')}
+    </button>
+  `).join('');
+
+  tabBar.querySelectorAll('.tt-modal-tab').forEach(btn => {
+    btn.addEventListener('click', () => {
+      modalActiveIdx = parseInt(btn.dataset.idx, 10);
+      renderModalTabs();
+      renderModalTimetable(modalActiveIdx);
+    });
+  });
+}
+
+function renderModalTimetable(idx) {
+  const tt = modalTimetables[idx];
+  if (!tt) return;
+
+  document.getElementById('ttModalMeta').textContent =
+    `${tt.semester || 'S1'} · ${escHtml(tt.name || 'Timetable')} · Public`;
 
   const unitEl = document.getElementById('ttModalUnits');
   if (unitEl) {
-    unitEl.innerHTML = (pub.selected || []).map((s, i) => {
+    unitEl.innerHTML = (tt.selected || []).map((s, i) => {
       const col = getColor(i);
       return `<span class="inline-flex items-center px-[7px] py-[2px] rounded-md text-[10px] font-mono border" style="background:${col.bg};border-color:${col.border};color:${col.border}">${s.code}</span>`;
     }).join('');
   }
 
-  renderModalGrid(pub.selected || []);
-  document.getElementById('ttModal')?.classList.add('open');
+  renderModalGrid(tt.selected || []);
 }
 
 function closeTimetableModal() {
@@ -362,4 +386,8 @@ function renderModalGrid(selected) {
       cell.appendChild(pill);
     });
   });
+}
+
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }

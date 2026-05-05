@@ -9,11 +9,12 @@ import { DAYS, getColor } from "./utils/schedule-utils.js";
 import { updateNavBadge } from "./utils/nav.js";
 import "./utils/components.js";
 
-let allCourses = [];
-let selected = []; // [{ code, altIdx }] — local copy, synced to API
-let activeSems = ["S1", "S2"];
-let tablePage = 0;
-const PAGE_SIZE = 8;
+let allCourses    = [];
+let allTimetables = [];
+let selected      = [];
+let activeSems    = ["S1", "S2"];
+let tablePage     = 0;
+const PAGE_SIZE   = 8;
 
 document.addEventListener("DOMContentLoaded", async () => {
   const loggedIn = !!State.getUser();
@@ -21,12 +22,14 @@ document.addEventListener("DOMContentLoaded", async () => {
   if (!loggedIn) {
     document.getElementById("basketCard")?.style.setProperty("display", "none");
     document.getElementById("manualCard")?.style.setProperty("display", "none");
-    document
-      .getElementById("coursesLayout")
+    document.getElementById("coursesLayout")
       ?.classList.replace("lg:grid-cols-[1fr_340px]", "lg:grid-cols-1");
     await loadCourses();
   } else {
     await Promise.all([loadCourses(), loadTimetable()]);
+    renderTtSelector();
+    bindTtSelector();
+    bindNewTtModal();
   }
 
   bindFilters();
@@ -56,8 +59,16 @@ async function loadCourses() {
 
 async function loadTimetable() {
   try {
-    const tt = await API.getTimetable();
-    selected = tt.selected || [];
+    allTimetables     = await API.getTimetables() || [];
+    const savedId     = State.getActiveTimetableId();
+    const match       = allTimetables.find(t => t.id === savedId);
+    const activeId    = match ? savedId : (allTimetables[0]?.id ?? null);
+    State.setActiveTimetableId(activeId);
+
+    if (activeId) {
+      const tt = await API.getTimetableById(activeId);
+      selected = tt.selected || [];
+    }
     updateNavBadge(selected.length);
   } catch (err) {
     console.error(err);
@@ -66,12 +77,113 @@ async function loadTimetable() {
 
 async function saveSelected() {
   updateNavBadge(selected.length);
+  const id = State.getActiveTimetableId();
+  if (!id) return;
   try {
-    await API.saveTimetable({ selected });
+    await API.updateTimetable(id, { selected });
   } catch (e) {
-    console.error("saveTimetable failed:", e);
+    console.error("updateTimetable failed:", e);
     toast(e.message || "Could not save selection", "error");
   }
+}
+
+/* ── Timetable picker dropdown ───────────── */
+function renderTtSelector() {
+  const activeId = State.getActiveTimetableId();
+  const active   = allTimetables.find(t => t.id === activeId);
+
+  const label = document.getElementById("ttSelectorLabel");
+  if (label) label.textContent = active?.name ?? "My Timetable";
+
+  const items = document.getElementById("ttDropdownItems");
+  if (!items) return;
+
+  items.innerHTML = allTimetables.map(tt => `
+    <button type="button" class="tt-pick-btn w-full text-left px-3 py-[7px] text-[11px] font-mono flex items-center gap-2 hover:bg-[var(--bg3)] transition-colors cursor-pointer bg-transparent border-0 text-[var(--text)]" data-id="${tt.id}">
+      <span class="w-3 flex-shrink-0 text-[var(--accent)]">${tt.id === activeId ? "✓" : ""}</span>
+      <span class="flex-1 min-w-0 truncate">${escHtml(tt.name)}</span>
+    </button>`
+  ).join("");
+
+  items.querySelectorAll(".tt-pick-btn").forEach(btn => {
+    btn.addEventListener("click", () => switchTimetable(Number(btn.dataset.id)));
+  });
+}
+
+function bindTtSelector() {
+  const btn      = document.getElementById("ttSelectorBtn");
+  const dropdown = document.getElementById("ttDropdown");
+
+  btn?.addEventListener("click", e => {
+    e.stopPropagation();
+    dropdown?.classList.toggle("hidden");
+  });
+
+  document.getElementById("ttNewBtn")?.addEventListener("click", () => {
+    dropdown?.classList.add("hidden");
+    openNewTtModal();
+  });
+
+  document.addEventListener("click", e => {
+    if (!document.getElementById("ttSelectorWrap")?.contains(e.target)) {
+      dropdown?.classList.add("hidden");
+    }
+  });
+}
+
+async function switchTimetable(id) {
+  document.getElementById("ttDropdown")?.classList.add("hidden");
+  if (id === State.getActiveTimetableId()) return;
+  State.setActiveTimetableId(id);
+  try {
+    const tt = await API.getTimetableById(id);
+    selected  = tt.selected || [];
+    updateNavBadge(selected.length);
+    renderTtSelector();
+    renderBasket();
+    renderTable();
+  } catch { toast("Could not load timetable", "error"); }
+}
+
+/* ── New timetable modal ─────────────────── */
+function bindNewTtModal() {
+  document.getElementById("cancelNewTtBtn")?.addEventListener("click", closeNewTtModal);
+  document.getElementById("confirmNewTtBtn")?.addEventListener("click", doCreateTimetable);
+  document.getElementById("newTtModal")?.addEventListener("click", e => {
+    if (e.target === document.getElementById("newTtModal")) closeNewTtModal();
+  });
+  document.getElementById("newTtName")?.addEventListener("keydown", e => {
+    if (e.key === "Enter") doCreateTimetable();
+    if (e.key === "Escape") closeNewTtModal();
+  });
+}
+
+function openNewTtModal() {
+  const input = document.getElementById("newTtName");
+  if (input) input.value = "";
+  document.getElementById("newTtModal")?.classList.add("open");
+  setTimeout(() => input?.focus(), 50);
+}
+
+function closeNewTtModal() {
+  document.getElementById("newTtModal")?.classList.remove("open");
+}
+
+async function doCreateTimetable() {
+  const name = document.getElementById("newTtName")?.value.trim();
+  if (!name) { toast("Enter a timetable name", "error"); return; }
+  try {
+    const tt      = await API.createTimetable({ name });
+    allTimetables = [tt, ...allTimetables];
+    selected      = [];
+    closeNewTtModal();
+    State.setActiveTimetableId(tt.id);
+    renderTtSelector();
+    renderBasket();
+    renderTable();
+    updateNavBadge(0);
+    toast(`"${tt.name}" created`, "success");
+  } catch { toast("Could not create timetable", "error"); }
 }
 
 /* ── Filters ─────────────────────────────── */
@@ -79,10 +191,8 @@ function bindFilters() {
   document.querySelectorAll(".filter-chip[data-sem]").forEach((chip) => {
     chip.addEventListener("click", () => {
       chip.classList.toggle("on");
-      activeSems = [
-        ...document.querySelectorAll(".filter-chip[data-sem].on"),
-      ].map((c) => c.dataset.sem);
-      tablePage = 0;
+      activeSems = [...document.querySelectorAll(".filter-chip[data-sem].on")].map(c => c.dataset.sem);
+      tablePage  = 0;
       renderTable();
     });
   });
@@ -98,13 +208,8 @@ function bindSearch() {
 function getFilteredCourses() {
   const q = (document.getElementById("unitSearch")?.value || "").toLowerCase();
   return allCourses.filter((c) => {
-    const semOk =
-      activeSems.length === 0 || c.sems.some((s) => activeSems.includes(s));
-    const qOk =
-      !q ||
-      c.code.toLowerCase().includes(q) ||
-      c.name.toLowerCase().includes(q) ||
-      c.faculty.toLowerCase().includes(q);
+    const semOk = activeSems.length === 0 || c.sems.some(s => activeSems.includes(s));
+    const qOk   = !q || c.code.toLowerCase().includes(q) || c.name.toLowerCase().includes(q) || c.faculty.toLowerCase().includes(q);
     return semOk && qOk;
   });
 }
@@ -112,21 +217,20 @@ function getFilteredCourses() {
 /* ── Table ───────────────────────────────── */
 function renderTable() {
   const courses = getFilteredCourses();
-  const start = tablePage * PAGE_SIZE;
-  const slice = courses.slice(start, start + PAGE_SIZE);
-  const tbody = document.getElementById("courseTableBody");
+  const start   = tablePage * PAGE_SIZE;
+  const slice   = courses.slice(start, start + PAGE_SIZE);
+  const tbody   = document.getElementById("courseTableBody");
   if (!tbody) return;
 
   tbody.innerHTML = slice.length
     ? slice.map(buildTableRow).join("")
     : `<tr><td colspan="5" style="text-align:center;padding:32px;color:var(--text3);font-style:italic">No units found</td></tr>`;
 
-  tbody.querySelectorAll(".add-row-btn").forEach((btn) => {
+  tbody.querySelectorAll(".add-row-btn").forEach(btn => {
     btn.addEventListener("click", () => toggleCourse(btn.dataset.code));
   });
 
-  document.getElementById("tableCount").textContent =
-    `${courses.length} unit${courses.length !== 1 ? "s" : ""}`;
+  document.getElementById("tableCount").textContent = `${courses.length} unit${courses.length !== 1 ? "s" : ""}`;
   renderPagination(courses.length);
 }
 
@@ -135,25 +239,17 @@ const TYPE_TAG_CLS = {
   lab: "bg-purple-500/10 border-purple-500/30 text-purple-400",
   tut: "bg-green-500/10 border-green-500/30 text-green-400",
 };
-const TAG_BASE =
-  "inline-flex items-center px-[7px] py-[2px] rounded-md text-[10px] font-mono border";
+const TAG_BASE = "inline-flex items-center px-[7px] py-[2px] rounded-md text-[10px] font-mono border";
 
 function buildTableRow(c) {
-  const isAdded = selected.some((x) => x.code === c.code);
-  const tags = c.sessions
-    .map((s) => {
-      const cls =
-        TYPE_TAG_CLS[s.type.toLowerCase()] ||
-        "border-[var(--border2)] text-[var(--text2)] bg-[var(--bg3)]";
-      return `<span class="${TAG_BASE} ${cls}">${s.type} ${DAYS[s.day].slice(0, 3)}</span>`;
-    })
-    .join("");
-  const sems = c.sems
-    .map(
-      (s) =>
-        `<span class="${TAG_BASE} bg-[var(--accent-glow)] border-[var(--accent-line)] text-[var(--accent)]">${s}</span>`,
-    )
-    .join("");
+  const isAdded = selected.some(x => x.code === c.code);
+  const tags    = c.sessions.map(s => {
+    const cls = TYPE_TAG_CLS[s.type.toLowerCase()] || "border-[var(--border2)] text-[var(--text2)] bg-[var(--bg3)]";
+    return `<span class="${TAG_BASE} ${cls}">${s.type} ${DAYS[s.day].slice(0, 3)}</span>`;
+  }).join("");
+  const sems = c.sems.map(s =>
+    `<span class="${TAG_BASE} bg-[var(--accent-glow)] border-[var(--accent-line)] text-[var(--accent)]">${s}</span>`
+  ).join("");
 
   return `<tr class="${isAdded ? "row-selected" : ""}">
     <td class="font-mono text-[12px] font-medium text-[var(--text)]">${c.code}</td>
@@ -175,47 +271,37 @@ function buildTableRow(c) {
 /* ── Pagination ──────────────────────────── */
 function renderPagination(total) {
   const pages = Math.ceil(total / PAGE_SIZE);
-  const el = document.getElementById("pagination");
+  const el    = document.getElementById("pagination");
   if (!el) return;
-  el.innerHTML = Array.from(
-    { length: pages },
-    (_, i) =>
-      `<button class="page-btn ${i === tablePage ? "current" : ""}" data-page="${i}">${i + 1}</button>`,
+  el.innerHTML = Array.from({ length: pages }, (_, i) =>
+    `<button class="page-btn ${i === tablePage ? "current" : ""}" data-page="${i}">${i + 1}</button>`
   ).join("");
-  el.querySelectorAll(".page-btn").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      tablePage = parseInt(btn.dataset.page);
-      renderTable();
-    });
+  el.querySelectorAll(".page-btn").forEach(btn => {
+    btn.addEventListener("click", () => { tablePage = parseInt(btn.dataset.page); renderTable(); });
   });
 }
 
 /* ── Toggle course in/out of selection ───── */
 function toggleCourse(code) {
-  if (!State.getUser()) {
-    window.location.href = "auth.html";
-    return;
-  }
-  const wasAdded = selected.some((x) => x.code === code);
+  if (!State.getUser()) { window.location.href = "auth.html"; return; }
+  const wasAdded = selected.some(x => x.code === code);
   if (wasAdded) {
-    selected = selected.filter((x) => x.code !== code);
+    selected = selected.filter(x => x.code !== code);
     const course = allCourses.find(c => c.code === code);
     if (course?.custom) {
       allCourses = allCourses.filter(c => c.code !== code);
-      API.deleteCustomCourse(code);  // fire-and-forget
+      API.deleteCustomCourse(code);
     }
     toast(`${code} removed`);
   } else {
     selected = [...selected, { code, altIdx: 0 }];
     toast(`${code} added`, "success");
   }
-  // Update only the affected row — no full table rebuild
   patchTableRow(code, !wasAdded);
   renderBasket();
-  saveSelected(); // fire-and-forget — keeps DOM updates in one paint frame
+  saveSelected();
 }
 
-/* ── Patch a single table row without rebuilding the whole table ── */
 function patchTableRow(code, isAdded) {
   const btn = document.querySelector(`.add-row-btn[data-code="${code}"]`);
   if (!btn) return;
@@ -227,35 +313,32 @@ function patchTableRow(code, isAdded) {
 
 /* ── Basket (right sidebar) ──────────────── */
 function renderBasket() {
-  const body = document.getElementById("basketBody");
+  const body   = document.getElementById("basketBody");
   const footer = document.getElementById("basketFooter");
   if (!body) return;
 
   if (!selected.length) {
-    body.innerHTML =
-      '<div class="p-8 text-center text-[var(--text3)] text-[13px] italic">Add units from the table</div>';
+    body.innerHTML = '<div class="p-8 text-center text-[var(--text3)] text-[13px] italic">Add units from the table</div>';
     if (footer) footer.style.display = "none";
     return;
   }
 
   if (footer) footer.style.display = "";
 
-  body.innerHTML = `<div class="flex flex-col gap-2">${selected
-    .map(({ code }, i) => {
-      const c = allCourses.find((x) => x.code === code);
-      const col = getColor(i);
-      return `<div class="flex items-center gap-2.5">
-        <div class="w-2 h-2 rounded-full flex-shrink-0" style="background:${col.border}"></div>
-        <div class="flex-1 min-w-0">
-          <div class="font-mono text-[11px] font-medium text-[var(--text)]">${code}</div>
-          <div class="text-[11px] text-[var(--text3)] truncate">${c ? c.name : "Custom unit"}</div>
-        </div>
-        <button class="w-5 h-5 rounded flex items-center justify-center border-0 bg-transparent text-[var(--text3)] text-[14px] cursor-pointer hover:text-[var(--red)] hover:bg-[var(--red-bg)] flex-shrink-0 rm-btn" data-code="${code}" aria-label="Remove ${code}">×</button>
-      </div>`;
-    })
-    .join("")}</div>`;
+  body.innerHTML = `<div class="flex flex-col gap-2">${selected.map(({ code }, i) => {
+    const c   = allCourses.find(x => x.code === code);
+    const col = getColor(i);
+    return `<div class="flex items-center gap-2.5">
+      <div class="w-2 h-2 rounded-full flex-shrink-0" style="background:${col.border}"></div>
+      <div class="flex-1 min-w-0">
+        <div class="font-mono text-[11px] font-medium text-[var(--text)]">${code}</div>
+        <div class="text-[11px] text-[var(--text3)] truncate">${c ? c.name : "Custom unit"}</div>
+      </div>
+      <button class="w-5 h-5 rounded flex items-center justify-center border-0 bg-transparent text-[var(--text3)] text-[14px] cursor-pointer hover:text-[var(--red)] hover:bg-[var(--red-bg)] flex-shrink-0 rm-btn" data-code="${code}" aria-label="Remove ${code}">×</button>
+    </div>`;
+  }).join("")}</div>`;
 
-  body.querySelectorAll(".rm-btn").forEach((btn) => {
+  body.querySelectorAll(".rm-btn").forEach(btn => {
     btn.addEventListener("click", () => toggleCourse(btn.dataset.code));
   });
 }
@@ -278,9 +361,7 @@ function makeSessionRow(removable) {
     <input type="number" class="sess-end sess-input sess-num" min="9" max="20" value="11" title="End hour">
     ${removable ? '<button type="button" class="sess-rm" aria-label="Remove row">×</button>' : ''}
   `;
-  if (removable) {
-    row.querySelector(".sess-rm").addEventListener("click", () => row.remove());
-  }
+  if (removable) row.querySelector(".sess-rm").addEventListener("click", () => row.remove());
   return row;
 }
 
@@ -313,13 +394,12 @@ function bindManualAdd() {
     document.getElementById("sessionList")?.appendChild(makeSessionRow(true));
   });
   document.getElementById("addManualBtn")?.addEventListener("click", addManual);
-  document.getElementById("manualCode")?.addEventListener("keydown", (e) => {
+  document.getElementById("manualCode")?.addEventListener("keydown", e => {
     if (e.key === "Enter") addManual();
   });
-
-  document.querySelectorAll(".sem-btn").forEach((btn) => {
+  document.querySelectorAll(".sem-btn").forEach(btn => {
     btn.addEventListener("click", () => {
-      document.querySelectorAll(".sem-btn").forEach((b) => b.classList.remove("on"));
+      document.querySelectorAll(".sem-btn").forEach(b => b.classList.remove("on"));
       btn.classList.add("on");
     });
   });
@@ -328,21 +408,15 @@ function bindManualAdd() {
 async function addManual() {
   const codeInput = document.getElementById("manualCode");
   const nameInput = document.getElementById("manualName");
-  const code = codeInput.value.trim().toUpperCase();
-  if (!code) {
-    toast("Enter a unit code", "error");
-    return;
-  }
-  if (selected.some((x) => x.code === code)) {
-    toast(`${code} is already in your selection`);
-    return;
-  }
+  const code      = codeInput.value.trim().toUpperCase();
+  if (!code) { toast("Enter a unit code", "error"); return; }
+  if (selected.some(x => x.code === code)) { toast(`${code} is already in your selection`); return; }
 
   const name     = nameInput?.value.trim() || code;
   const sem      = document.querySelector(".sem-btn.on")?.dataset.sem || "S1";
   const sessions = getSessionRows();
 
-  if (!allCourses.find((c) => c.code === code)) {
+  if (!allCourses.find(c => c.code === code)) {
     const custom = { code, name, faculty: "Custom", sems: [sem], sessions, alternatives: [], custom: true };
     allCourses.push(custom);
     await API.saveCustomCourse(custom);
@@ -356,4 +430,9 @@ async function addManual() {
   codeInput.value = "";
   if (nameInput) nameInput.value = "";
   resetSessionRows();
+}
+
+/* ── Helpers ─────────────────────────────── */
+function escHtml(s) {
+  return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
