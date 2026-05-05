@@ -110,15 +110,27 @@ def run_auto_schedule(selected: list, courses: list, prefs: dict) -> list:
 
         best_alt, best_score = entry.get('altIdx', 0), float('inf')
 
+        # Days already occupied by every other unit (used for compact scoring)
+        other_days = set()
+        if compact_days:
+            for j, other in enumerate(result):
+                if j == i:
+                    continue
+                other_course = next((c for c in courses if c['code'] == other['code']), None)
+                if other_course:
+                    for s in get_active_sessions(other_course, other.get('altIdx', 0)):
+                        other_days.add(s['day'])
+
         for alt in range(len(course['alternatives']) + 1):
             test = [dict(e) for e in result]
             test[i]['altIdx'] = alt
-            n_clash    = len(detect_conflicts(test, courses))
-            sessions   = get_active_sessions(course, alt)
-            pen_8am    = 10 if avoid_8am    and any(s['hour'] == 8 for s in sessions) else 0
-            pen_fri    = 10 if free_fridays and any(s['day']  == 4 for s in sessions) else 0
-            pen_spread = len({s['day'] for s in sessions}) if compact_days else 0
-            score      = n_clash * 100 + pen_8am + pen_fri + pen_spread
+            n_clash  = len(detect_conflicts(test, courses))
+            sessions = get_active_sessions(course, alt)
+            pen_8am  = 10 if avoid_8am    and any(s['hour'] == 8 for s in sessions) else 0
+            pen_fri  = 10 if free_fridays and any(s['day']  == 4 for s in sessions) else 0
+            # Penalise each day this alt adds that no other unit already uses
+            pen_compact = len({s['day'] for s in sessions} - other_days) * 5 if compact_days else 0
+            score = n_clash * 100 + pen_8am + pen_fri + pen_compact
 
             if score < best_score:
                 best_score, best_alt = score, alt
