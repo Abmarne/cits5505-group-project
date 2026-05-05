@@ -509,9 +509,6 @@ function bindControls() {
     } catch { toast('Auto-schedule failed', 'error'); }
   });
 
-  const range = document.getElementById('startRange');
-  const val   = document.getElementById('startVal');
-  if (range && val) range.addEventListener('input', () => { val.textContent = `${range.value}:00`; });
 }
 
 /* ── New timetable modal ─────────────────────── */
