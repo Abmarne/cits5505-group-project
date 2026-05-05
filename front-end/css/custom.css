@@ -149,12 +149,15 @@ button, input, select, textarea { font-family:var(--sans); }
 .tt-cell:hover { background:rgba(79,142,247,.03); }
 
 /* 21. Class pills (absolute + animation) */
-.class-pill { position:absolute; left:3px; right:3px; border-radius:5px; padding:4px 7px; cursor:pointer; z-index:2; overflow:hidden; border-left:2px solid currentColor; }
+.class-pill { position:absolute; left:3px; right:3px; border-radius:5px; padding:4px 7px; cursor:pointer; z-index:2; overflow:hidden; border-left:2px solid currentColor; transition:opacity .15s,transform .15s; }
 .class-pill:hover { transform:scale(1.03); box-shadow:0 4px 16px rgba(0,0,0,.4); z-index:10; }
 .class-pill.conflict { animation:flashRed .4s ease 3; }
-.pill-code { font-family:var(--mono); font-size:10px; font-weight:500; }
-.pill-type { font-size:9px; opacity:.65; text-transform:uppercase; letter-spacing:.04em; }
-.pill-name { font-size:10px; opacity:.7; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.class-pill.editing { box-shadow:0 0 0 2px #fff, 0 0 0 4px var(--accent); z-index:5; }
+.ghost-pill { opacity:.32; border-style:dashed !important; z-index:3; }
+.ghost-pill:hover { opacity:.8; transform:scale(1.03); box-shadow:0 4px 16px rgba(0,0,0,.35); z-index:10; }
+.pill-code { font-family:var(--mono); font-size:12px; font-weight:700; color:#000; }
+.pill-type { font-size:10px; font-weight:600; color:#000; text-transform:uppercase; letter-spacing:.04em; }
+.pill-name { font-size:11px; font-weight:600; color:#000; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 
 /* 22. Alt drawer (animation) */
 .alt-drawer        { border-top:1px solid var(--border); padding:16px 20px; background:var(--bg3); animation:drawerIn .2s ease; }

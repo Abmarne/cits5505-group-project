@@ -1,25 +1,70 @@
 """
-scheduling.py — Courses, timetables, friends
+api.py — Authenticated API routes
 
-Blueprint registered by app.py. Handles:
-  - /api/courses (public) + /api/courses/custom (auth)
-  - /api/users lookup
-  - Multiple timetables per user (CRUD)
-  - Conflict detection + auto-scheduling
-  - All /api/friends/* routes
+  /api/profile          GET PUT
+  /api/users/<sn>       GET
+  /api/timetables       GET POST
+  /api/timetables/<id>  GET PUT DELETE  + /conflicts  /auto-schedule
+  /api/friends          GET DELETE
+  /api/friends/requests GET POST PUT DELETE
+  /api/friends/<sn>/timetables  GET
+  /api/courses          GET
+  /api/courses/<code>   GET
+  /api/courses/custom   GET POST DELETE
 """
 
 import json as _json
 from datetime import datetime
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, current_app
 from flask_jwt_extended import jwt_required
 from models import db, User, Timetable, TimetableEntry, Friendship, FriendRequest, CustomCourse
-from utils import ok, err, current_user, user_dict, load_courses
+from utils import ok, err, current_user, user_dict, get_initials, load_courses
 
-scheduling_bp = Blueprint('scheduling', __name__)
+api_bp = Blueprint('api', __name__)
 
 
-# ── Pure scheduling helpers ───────────────────────────────────────────
+# ════════════════════════════════════════
+# USERS  /api/profile  /api/users
+# ════════════════════════════════════════
+
+@api_bp.get('/api/profile')
+@jwt_required()
+def get_profile():
+    return jsonify({'user': user_dict(current_user())})
+
+
+@api_bp.put('/api/profile')
+@jwt_required()
+def update_profile():
+    user = current_user()
+    data = request.get_json(silent=True) or {}
+    name = (data.get('name')          or '').strip()
+    sn   = (data.get('studentNumber') or '').strip()
+
+    if name:
+        user.name     = name
+        user.initials = get_initials(name)
+    if sn and sn != user.student_number:
+        if User.query.filter_by(student_number=sn).first():
+            return err('Student number already in use', 409)
+        user.student_number = sn
+
+    db.session.commit()
+    return jsonify({'user': user_dict(user)})
+
+
+@api_bp.get('/api/users/<student_number>')
+@jwt_required()
+def lookup_user(student_number):
+    user = User.query.filter_by(student_number=student_number).first()
+    if not user:
+        return err('User not found', 404)
+    return jsonify(user_dict(user))
+
+
+# ════════════════════════════════════════
+# SCHEDULING HELPERS
+# ════════════════════════════════════════
 
 def get_active_sessions(course: dict, alt_idx: int) -> list:
     base = list(course.get('sessions', []))
@@ -82,8 +127,6 @@ def run_auto_schedule(selected: list, courses: list, prefs: dict) -> list:
     return result
 
 
-# ── Timetable helpers ─────────────────────────────────────────────────
-
 def replace_entries(tt: Timetable, selected: list) -> None:
     TimetableEntry.query.filter_by(timetable_id=tt.id).delete()
     for pos, item in enumerate(selected):
@@ -110,7 +153,7 @@ def _sorted_timetables(user: User) -> list:
 # TIMETABLES  /api/timetables
 # ════════════════════════════════════════
 
-@scheduling_bp.get('/api/timetables')
+@api_bp.get('/api/timetables')
 @jwt_required()
 def list_timetables():
     user = current_user()
@@ -121,7 +164,7 @@ def list_timetables():
     return jsonify([tt.to_summary() for tt in _sorted_timetables(user)])
 
 
-@scheduling_bp.post('/api/timetables')
+@api_bp.post('/api/timetables')
 @jwt_required()
 def create_timetable():
     user = current_user()
@@ -133,17 +176,16 @@ def create_timetable():
     return jsonify(tt.to_dict()), 201
 
 
-@scheduling_bp.get('/api/timetables/<int:tt_id>')
+@api_bp.get('/api/timetables/<int:tt_id>')
 @jwt_required()
 def get_timetable(tt_id):
-    user = current_user()
-    tt   = get_tt_or_404(user, tt_id)
+    tt = get_tt_or_404(current_user(), tt_id)
     if not tt:
         return err('Timetable not found', 404)
     return jsonify(tt.to_dict())
 
 
-@scheduling_bp.put('/api/timetables/<int:tt_id>')
+@api_bp.put('/api/timetables/<int:tt_id>')
 @jwt_required()
 def update_timetable(tt_id):
     user = current_user()
@@ -164,11 +206,10 @@ def update_timetable(tt_id):
     return ok()
 
 
-@scheduling_bp.delete('/api/timetables/<int:tt_id>')
+@api_bp.delete('/api/timetables/<int:tt_id>')
 @jwt_required()
 def delete_timetable(tt_id):
-    user = current_user()
-    tt   = get_tt_or_404(user, tt_id)
+    tt = get_tt_or_404(current_user(), tt_id)
     if not tt:
         return err('Timetable not found', 404)
     db.session.delete(tt)
@@ -176,7 +217,7 @@ def delete_timetable(tt_id):
     return ok()
 
 
-@scheduling_bp.post('/api/timetables/<int:tt_id>/conflicts')
+@api_bp.post('/api/timetables/<int:tt_id>/conflicts')
 @jwt_required()
 def timetable_conflicts(tt_id):
     user     = current_user()
@@ -189,7 +230,7 @@ def timetable_conflicts(tt_id):
     return jsonify({'conflicts': list(detect_conflicts(selected, courses))})
 
 
-@scheduling_bp.post('/api/timetables/<int:tt_id>/auto-schedule')
+@api_bp.post('/api/timetables/<int:tt_id>/auto-schedule')
 @jwt_required()
 def timetable_auto_schedule(tt_id):
     user     = current_user()
@@ -207,7 +248,7 @@ def timetable_auto_schedule(tt_id):
 # FRIENDS  /api/friends
 # ════════════════════════════════════════
 
-@scheduling_bp.get('/api/friends')
+@api_bp.get('/api/friends')
 @jwt_required()
 def get_friends():
     user = current_user()
@@ -217,7 +258,7 @@ def get_friends():
     ])
 
 
-@scheduling_bp.delete('/api/friends/<student_number>')
+@api_bp.delete('/api/friends/<student_number>')
 @jwt_required()
 def remove_friend(student_number):
     user   = current_user()
@@ -231,7 +272,7 @@ def remove_friend(student_number):
     return ok()
 
 
-@scheduling_bp.post('/api/friends/requests')
+@api_bp.post('/api/friends/requests')
 @jwt_required()
 def send_friend_request():
     user      = current_user()
@@ -249,7 +290,7 @@ def send_friend_request():
     return ok()
 
 
-@scheduling_bp.get('/api/friends/requests/sent')
+@api_bp.get('/api/friends/requests/sent')
 @jwt_required()
 def get_sent_requests():
     user = current_user()
@@ -259,7 +300,7 @@ def get_sent_requests():
     ])
 
 
-@scheduling_bp.delete('/api/friends/requests/sent/<student_number>')
+@api_bp.delete('/api/friends/requests/sent/<student_number>')
 @jwt_required()
 def cancel_friend_request(student_number):
     user      = current_user()
@@ -270,7 +311,7 @@ def cancel_friend_request(student_number):
     return ok()
 
 
-@scheduling_bp.get('/api/friends/requests/pending')
+@api_bp.get('/api/friends/requests/pending')
 @jwt_required()
 def get_pending_requests():
     user = current_user()
@@ -280,7 +321,7 @@ def get_pending_requests():
     ])
 
 
-@scheduling_bp.put('/api/friends/requests/<student_number>/accept')
+@api_bp.put('/api/friends/requests/<student_number>/accept')
 @jwt_required()
 def accept_friend_request(student_number):
     user   = current_user()
@@ -298,7 +339,7 @@ def accept_friend_request(student_number):
     return ok()
 
 
-@scheduling_bp.delete('/api/friends/requests/<student_number>')
+@api_bp.delete('/api/friends/requests/<student_number>')
 @jwt_required()
 def decline_friend_request(student_number):
     user   = current_user()
@@ -309,14 +350,21 @@ def decline_friend_request(student_number):
     return ok()
 
 
-@scheduling_bp.get('/api/friends/<student_number>/timetables')
+@api_bp.get('/api/friends/<student_number>/timetables')
 @jwt_required()
 def get_friend_timetables(student_number):
     me     = current_user()
     friend = User.query.filter_by(student_number=student_number).first()
     if not friend:
+        current_app.logger.info(f'[timetables] {student_number} not found')
         return err('User not found', 404)
-    if not Friendship.query.filter_by(user_id=me.id, friend_id=friend.id).first():
+    is_friend = Friendship.query.filter_by(user_id=me.id, friend_id=friend.id).first()
+    current_app.logger.info(
+        f'[timetables] me={me.student_number} friend={student_number} '
+        f'is_friend={bool(is_friend)} '
+        f'tts={[(tt.name, tt.is_public) for tt in friend.timetables]}'
+    )
+    if not is_friend:
         return err('Not friends', 403)
     result = []
     for tt in friend.timetables:
@@ -335,12 +383,12 @@ def get_friend_timetables(student_number):
 # COURSES  /api/courses
 # ════════════════════════════════════════
 
-@scheduling_bp.get('/api/courses')
+@api_bp.get('/api/courses')
 def get_courses():
     return jsonify(load_courses())
 
 
-@scheduling_bp.get('/api/courses/<code>')
+@api_bp.get('/api/courses/<code>')
 def get_course(code):
     course = next((c for c in load_courses() if c['code'] == code.upper()), None)
     if not course:
@@ -348,18 +396,14 @@ def get_course(code):
     return jsonify(course)
 
 
-# ════════════════════════════════════════
-# CUSTOM COURSES  /api/courses/custom
-# ════════════════════════════════════════
-
-@scheduling_bp.get('/api/courses/custom')
+@api_bp.get('/api/courses/custom')
 @jwt_required()
 def get_custom_courses():
     user = current_user()
     return jsonify([r.to_dict() for r in CustomCourse.query.filter_by(user_id=user.id).all()])
 
 
-@scheduling_bp.post('/api/courses/custom')
+@api_bp.post('/api/courses/custom')
 @jwt_required()
 def save_custom_course():
     user = current_user()
@@ -385,12 +429,10 @@ def save_custom_course():
     return ok()
 
 
-@scheduling_bp.delete('/api/courses/custom/<code>')
+@api_bp.delete('/api/courses/custom/<code>')
 @jwt_required()
 def delete_custom_course(code):
     user = current_user()
     CustomCourse.query.filter_by(user_id=user.id, code=code.upper()).delete()
     db.session.commit()
     return ok()
-
-

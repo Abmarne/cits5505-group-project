@@ -21,7 +21,7 @@ let selected         = [];
 let conflicts        = new Set();
 let isPublic         = false;
 let timetableName    = '';
-let activeDrawerCode = null;
+let activeGhostCode = null;
 
 document.addEventListener('DOMContentLoaded', async () => {
   if (!State.getUser()) { window.location.href = 'auth.html'; return; }
@@ -174,6 +174,9 @@ function renderUI() {
   const toggle = document.getElementById('publicToggle');
   if (toggle) toggle.checked = isPublic;
 
+  const drawer = document.getElementById('altDrawer');
+  if (drawer) drawer.style.display = 'none';
+
   renderSummaryBar(conflicts);
   renderConflictAlert(conflicts);
   renderLegend();
@@ -252,7 +255,13 @@ function renderVariantButtons() {
   ).join('');
 
   el.querySelectorAll('.variant-btn').forEach(btn => {
-    btn.addEventListener('click', () => showAltDrawer(btn.dataset.code));
+    btn.addEventListener('click', () => {
+      const code   = btn.dataset.code;
+      const course = allCourses.find(c => c.code === code);
+      const ci     = selected.findIndex(s => s.code === code);
+      const altType = (course?.alternatives?.[0] || [])[0]?.type || 'LAB';
+      showGhostAlternatives(code, altType, ci);
+    });
   });
 }
 
@@ -270,6 +279,8 @@ function renderTimetable(conflicts) {
   }
   body.innerHTML = html;
 
+  body.addEventListener('click', clearGhosts);
+
   selected.forEach(({ code, altIdx }, ci) => {
     const course     = allCourses.find(c => c.code === code);
     if (!course) return;
@@ -282,6 +293,8 @@ function renderTimetable(conflicts) {
       if (!cell) return;
       const pill = document.createElement('div');
       pill.className = 'class-pill' + (isConflict ? ' conflict' : '');
+      pill.dataset.code  = code;
+      pill.dataset.stype = sess.type;
       pill.style.cssText = `
         top: 3px;
         height: ${sess.duration * SLOT_H - 6}px;
@@ -294,7 +307,10 @@ function renderTimetable(conflicts) {
         <div class="pill-type">${sess.type}</div>
         <div class="pill-name">${course.name}</div>
       `;
-      pill.addEventListener('click', () => showAltDrawer(code));
+      pill.addEventListener('click', (e) => {
+        e.stopPropagation();
+        showGhostAlternatives(code, sess.type, ci);
+      });
       cell.appendChild(pill);
     });
   });
@@ -395,52 +411,72 @@ function buildUnknownCard(code, col) {
   </div>`;
 }
 
-/* ── Alt drawer ──────────────────────────────── */
-function showAltDrawer(code) {
-  activeDrawerCode = code;
+/* ── Ghost alternative overlays ──────────────── */
+function showGhostAlternatives(code, sessType, colorIdx) {
+  clearGhosts();
+
   const course = allCourses.find(c => c.code === code);
   const entry  = selected.find(s => s.code === code);
   if (!course) return;
 
-  const drawer = document.getElementById('altDrawer');
-  if (!drawer) return;
+  const ci  = colorIdx ?? selected.findIndex(s => s.code === code);
+  const col = getColor(ci);
+  const currentAltIdx = entry?.altIdx ?? 0;
 
-  const alts = [
-    { idx: 0, label: 'Default slot', sessions: course.sessions },
-    ...(course.alternatives || []).map((alt, i) => {
-      const altTypes = alt.map(s => s.type);
-      return {
-        idx: i + 1,
-        label: `Option ${i + 1}`,
-        sessions: [...course.sessions.filter(s => !altTypes.includes(s.type)), ...alt],
-      };
-    }),
-  ];
+  // Collect all slot options for this session type
+  const typeAlts = [];
+  const defSess = course.sessions.filter(s => s.type === sessType);
+  if (defSess.length) typeAlts.push({ idx: 0, sessions: defSess });
+  (course.alternatives || []).forEach((alt, i) => {
+    const match = alt.filter(s => s.type === sessType);
+    if (match.length) typeAlts.push({ idx: i + 1, sessions: match });
+  });
 
-  drawer.style.display = '';
-  drawer.innerHTML = `
-    <div class="px-5 py-4 border-t border-[var(--border)] bg-[var(--bg3)]" style="animation:drawerIn .2s ease">
-      <div class="font-mono text-[10px] uppercase tracking-[.08em] text-[var(--text3)] mb-3">
-        Slot alternatives — ${code}
-      </div>
-      <div class="flex flex-wrap gap-2">
-        ${alts.map(a => `
-          <button class="alt-opt-btn text-[12px] font-mono px-3 py-1.5 rounded-lg border cursor-pointer transition-colors ${a.idx === (entry?.altIdx || 0) ? 'bg-[var(--accent-glow)] border-[var(--accent-line)] text-[var(--accent)]' : 'bg-[var(--bg2)] border-[var(--border2)] text-[var(--text2)] hover:border-[var(--accent-line)]'}" data-alt="${a.idx}">
-            ${a.label}
-            <span class="text-[10px] ml-1 opacity-60">${a.sessions.map(s => `${DAYS[s.day].slice(0,3)} ${s.hour}:00`).join(', ')}</span>
-          </button>`
-        ).join('')}
-      </div>
-    </div>`;
+  if (typeAlts.length <= 1) return; // nothing to swap
 
-  drawer.querySelectorAll('.alt-opt-btn').forEach(btn => {
-    btn.addEventListener('click', async () => {
-      const altIdx = parseInt(btn.dataset.alt);
-      const idx    = selected.findIndex(s => s.code === code);
-      if (idx !== -1) selected[idx] = { ...selected[idx], altIdx };
-      await saveAndRefresh();
+  activeGhostCode = code;
+
+  // Ring around the currently active pill(s) of this type
+  document.querySelectorAll(`.class-pill[data-code="${code}"][data-stype="${sessType}"]`)
+    .forEach(el => el.classList.add('editing'));
+
+  const body = document.getElementById('ttBody');
+  if (!body) return;
+
+  typeAlts.filter(a => a.idx !== currentAltIdx).forEach(({ idx, sessions }) => {
+    sessions.forEach(sess => {
+      const row = sess.hour - START_H;
+      if (row < 0 || row >= TOTAL_H) return;
+      const cell = body.querySelector(`[data-row="${row}"][data-day="${sess.day}"]`);
+      if (!cell) return;
+
+      const ghost = document.createElement('div');
+      ghost.className = 'class-pill ghost-pill';
+      ghost.dataset.code = code;
+      ghost.style.cssText = `
+        top: 3px;
+        height: ${sess.duration * SLOT_H - 6}px;
+        background: ${col.bg};
+        border-left-color: ${col.border};
+        color: ${col.text};
+      `;
+      ghost.innerHTML = `<div class="pill-code">${code}</div><div class="pill-type">${sess.type}</div>`;
+      ghost.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        const selIdx = selected.findIndex(s => s.code === code);
+        if (selIdx !== -1) selected[selIdx] = { ...selected[selIdx], altIdx: idx };
+        clearGhosts();
+        await saveAndRefresh();
+      });
+      cell.appendChild(ghost);
     });
   });
+}
+
+function clearGhosts() {
+  document.querySelectorAll('.ghost-pill').forEach(el => el.remove());
+  document.querySelectorAll('.class-pill.editing').forEach(el => el.classList.remove('editing'));
+  activeGhostCode = null;
 }
 
 /* ── Bind controls ───────────────────────────── */
