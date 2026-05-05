@@ -325,14 +325,14 @@ function renderBasket() {
 
   if (footer) footer.style.display = "";
 
-  body.innerHTML = `<div class="flex flex-col gap-2">${selected.map(({ code }, i) => {
+  body.innerHTML = `<div class="divide-y divide-[var(--border)]">${selected.map(({ code }, i) => {
     const c   = allCourses.find(x => x.code === code);
     const col = getColor(i);
-    return `<div class="flex items-center gap-2.5">
+    return `<div class="flex items-center gap-3 px-4 py-2.5">
       <div class="w-2 h-2 rounded-full flex-shrink-0" style="background:${col.border}"></div>
       <div class="flex-1 min-w-0">
-        <div class="font-mono text-[11px] font-medium text-[var(--text)]">${code}</div>
-        <div class="text-[11px] text-[var(--text3)] truncate">${c ? c.name : "Custom unit"}</div>
+        <div class="font-mono text-[11px] font-semibold text-[var(--text)]">${code}</div>
+        <div class="text-[10px] text-[var(--text3)] truncate">${c ? c.name : "Custom unit"}</div>
       </div>
       <button class="w-5 h-5 rounded flex items-center justify-center border-0 bg-transparent text-[var(--text3)] text-[14px] cursor-pointer hover:text-[var(--red)] hover:bg-[var(--red-bg)] flex-shrink-0 rm-btn" data-code="${code}" aria-label="Remove ${code}">×</button>
     </div>`;
