@@ -282,16 +282,21 @@ function renderPagination(total) {
 }
 
 /* ── Toggle course in/out of selection ───── */
-function toggleCourse(code) {
+async function toggleCourse(code) {
   if (!State.getUser()) { window.location.href = "/auth"; return; }
   const wasAdded = selected.some(x => x.code === code);
   if (wasAdded) {
-    selected = selected.filter(x => x.code !== code);
     const course = allCourses.find(c => c.code === code);
     if (course?.custom) {
+      try {
+        await API.deleteCustomCourse(code);
+      } catch {
+        toast(`Failed to delete ${code}`, "error");
+        return;
+      }
       allCourses = allCourses.filter(c => c.code !== code);
-      API.deleteCustomCourse(code);
     }
+    selected = selected.filter(x => x.code !== code);
     toast(`${code} removed`);
   } else {
     selected = [...selected, { code, altIdx: 0 }];
