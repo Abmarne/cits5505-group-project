@@ -10,7 +10,7 @@ import "./utils/components.js";
 document.addEventListener("DOMContentLoaded", () => {
   // If already logged in, skip straight to courses
   if (State.getUser()) {
-    window.location.href = "courses.html";
+    window.location.href = "/courses";
     return;
   }
 
@@ -129,7 +129,7 @@ function loginAs(user) {
   State.setUser(user);
   toast(`Logged in as ${user.name} 👋`, "success");
   setTimeout(() => {
-    window.location.href = "courses.html";
+    window.location.href = "/courses";
   }, 500);
 }
 
@@ -171,7 +171,7 @@ async function handleSignup() {
     State.setUser(user);
     toast("Account created! Welcome aboard 🎉", "success");
     setTimeout(() => {
-      window.location.href = "courses.html";
+      window.location.href = "/courses";
     }, 600);
   } catch (err) {
     toast(err.message, "error");

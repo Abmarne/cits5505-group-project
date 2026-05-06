@@ -10,7 +10,7 @@ import "./utils/components.js";
 document.addEventListener("DOMContentLoaded", async () => {
   const user = State.getUser();
   if (!user) {
-    window.location.href = "auth.html";
+    window.location.href = "/auth";
     return;
   }
 

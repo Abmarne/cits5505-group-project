@@ -26,30 +26,30 @@ nav.innerHTML = `
   <!-- Left: Logo -->
   <a class="font-display text-[18px] font-extrabold tracking-tight
             text-[var(--text)] flex items-center gap-2"
-     href="index.html">
+     href="/">
     <div class="nav-logo-dot"></div>
     UWA Planner
   </a>
 
   <!-- Center: Nav links (hidden below 768px) -->
   <div class="hidden md:flex gap-1 items-center">
-    <a class="nav-link" href="courses.html">Browse Units</a>
-    <a class="nav-link nav-auth-only" href="schedule.html">
+    <a class="nav-link" href="/courses">Browse Units</a>
+    <a class="nav-link nav-auth-only" href="/schedule">
       My Schedule
       <span class="min-w-[16px] h-4 rounded-xl px-1 bg-[var(--accent)] text-white font-mono text-[9px] inline-flex items-center justify-center" data-badge="sel" style="display:none">0</span>
     </a>
-    <a class="nav-link nav-auth-only" href="friends.html">
+    <a class="nav-link nav-auth-only" href="/friends">
       Friends
       <span class="min-w-[16px] h-4 rounded-xl px-1 bg-[var(--accent)] text-white font-mono text-[9px] inline-flex items-center justify-center" data-badge="req" style="display:none">0</span>
     </a>
-    <a class="nav-link nav-auth-only" href="profile.html">Profile</a>
+    <a class="nav-link nav-auth-only" href="/profile">Profile</a>
   </div>
 
   <!-- Right: User / auth -->
   <div class="flex items-center gap-2 justify-end" id="navRight">
-    <a class="btn btn-sm hidden md:inline-flex" href="auth.html">Log in</a>
+    <a class="btn btn-sm hidden md:inline-flex" href="/auth">Log in</a>
     <a class="btn btn-sm btn-primary hidden md:inline-flex"
-       href="auth.html?tab=signup">Sign up</a>
+       href="/auth?tab=signup">Sign up</a>
   </div>
 `;
 document.body.prepend(nav);
@@ -64,7 +64,7 @@ sidebar.id = "sidebar";
 sidebar.className = "sidebar";
 sidebar.innerHTML = `
   <div class="flex items-center justify-between h-14 px-4 border-b border-[var(--border)]">
-    <a class="font-display text-[16px] font-extrabold tracking-tight text-[var(--text)] flex items-center gap-2" href="index.html">
+    <a class="font-display text-[16px] font-extrabold tracking-tight text-[var(--text)] flex items-center gap-2" href="/">
       <div class="nav-logo-dot"></div>
       UWA Planner
     </a>
@@ -72,18 +72,18 @@ sidebar.innerHTML = `
   </div>
 
   <nav class="flex-1 overflow-y-auto p-3 flex flex-col gap-1">
-    <a class="sidebar-link" href="courses.html">
+    <a class="sidebar-link" href="/courses">
       <span>Browse Units</span>
     </a>
-    <a class="sidebar-link nav-auth-only" href="schedule.html">
+    <a class="sidebar-link nav-auth-only" href="/schedule">
       <span>My Schedule</span>
       <span class="min-w-[16px] h-4 rounded-xl px-1 bg-[var(--accent)] text-white font-mono text-[9px] inline-flex items-center justify-center" data-badge="sel" style="display:none">0</span>
     </a>
-    <a class="sidebar-link nav-auth-only" href="friends.html">
+    <a class="sidebar-link nav-auth-only" href="/friends">
       <span>Friends</span>
       <span class="min-w-[16px] h-4 rounded-xl px-1 bg-[var(--accent)] text-white font-mono text-[9px] inline-flex items-center justify-center" data-badge="req" style="display:none">0</span>
     </a>
-    <a class="sidebar-link nav-auth-only" href="profile.html">
+    <a class="sidebar-link nav-auth-only" href="/profile">
       <span>Profile</span>
     </a>
   </nav>
@@ -151,22 +151,22 @@ function renderSidebarFooter() {
       ?.addEventListener("click", () => {
         State.clearUser();
         closeSidebar();
-        window.location.href = "index.html";
+        window.location.href = "/";
       });
   } else {
     footer.innerHTML = `
-      <a class="btn btn-primary btn-full" href="auth.html">Log in</a>
-      <a class="btn btn-full" href="auth.html?tab=signup" style="margin-top:8px">Sign up free</a>
+      <a class="btn btn-primary btn-full" href="/auth">Log in</a>
+      <a class="btn btn-full" href="/auth?tab=signup" style="margin-top:8px">Sign up free</a>
     `;
   }
 }
 
 /* ── Mark active sidebar link ───────────── */
 function markSidebarActiveLink() {
-  const page = location.pathname.split("/").pop() || "index.html";
+  const path = location.pathname;
   sidebar.querySelectorAll(".sidebar-link").forEach((link) => {
     const href = link.getAttribute("href") || "";
-    link.classList.toggle("active", href === page);
+    link.classList.toggle("active", href === path);
   });
 }
 
@@ -176,7 +176,7 @@ function applyAuthNavGuards() {
   document.querySelectorAll('.nav-auth-only').forEach(el => {
     el.addEventListener('click', e => {
       e.preventDefault();
-      window.location.href = 'auth.html';
+      window.location.href = '/auth';
     });
   });
 }

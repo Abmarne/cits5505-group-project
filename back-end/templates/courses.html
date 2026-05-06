@@ -1,16 +1,6 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Browse Units — UWA Planner</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=Instrument+Sans:ital,wght@0,300;0,400;0,500;1,300&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/tailwind-built.css">
-  <link rel="stylesheet" href="css/tokens.css">
-  <link rel="stylesheet" href="css/custom.css">
-</head>
-<body>
+{% extends "base.html" %}
+{% block title %}Browse Units — UWA Planner{% endblock %}
+{% block body %}
 
   <!-- Nav injected by js/utils/components.js -->
 
@@ -96,13 +86,13 @@
                 </div>
               </div>
             </div>
-            <a class="btn btn-sm btn-ghost flex-shrink-0" href="schedule.html">View →</a>
+            <a class="btn btn-sm btn-ghost flex-shrink-0" href="/schedule">View →</a>
           </div>
           <div id="basketBody">
             <div class="p-8 text-center text-[var(--text3)] text-[13px] italic">Add units from the table</div>
           </div>
           <div class="px-4 py-[14px] border-t border-[var(--border)] bg-[var(--bg3)]" id="basketFooter" style="display:none">
-            <a class="btn btn-primary btn-full" href="schedule.html">Generate schedule →</a>
+            <a class="btn btn-primary btn-full" href="/schedule">Generate schedule →</a>
           </div>
         </div>
 
@@ -174,6 +164,5 @@
     </div>
   </div>
 
-  <script type="module" src="js/courses.js"></script>
-</body>
-</html>
+  <script type="module" src="/static/js/courses.js"></script>
+{% endblock %}

@@ -24,7 +24,7 @@ let timetableName    = '';
 let activeGhostCode = null;
 
 document.addEventListener('DOMContentLoaded', async () => {
-  if (!State.getUser()) { window.location.href = 'auth.html'; return; }
+  if (!State.getUser()) { window.location.href = '/auth'; return; }
 
   try {
     [allCourses, allTimetables] = await Promise.all([

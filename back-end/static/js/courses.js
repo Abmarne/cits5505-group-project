@@ -283,7 +283,7 @@ function renderPagination(total) {
 
 /* ── Toggle course in/out of selection ───── */
 function toggleCourse(code) {
-  if (!State.getUser()) { window.location.href = "auth.html"; return; }
+  if (!State.getUser()) { window.location.href = "/auth"; return; }
   const wasAdded = selected.some(x => x.code === code);
   if (wasAdded) {
     selected = selected.filter(x => x.code !== code);

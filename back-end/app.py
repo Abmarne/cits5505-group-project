@@ -7,6 +7,7 @@ Blueprints
   timetables.py →  /api/timetables/*
   friends.py    →  /api/friends/*
   courses.py    →  /api/courses/*
+  pages.py      →  /  /auth  /schedule  /courses  /friends  /profile
 
 Other modules
   models.py  — SQLAlchemy models (User, Timetable, Friendship, …)
@@ -22,6 +23,7 @@ import os
 from datetime import timedelta
 from flask import Flask, request, make_response, jsonify
 from flask_jwt_extended import JWTManager
+from flask_wtf.csrf import CSRFProtect, CSRFError
 from models import db, User, Friendship
 from utils import err
 from auth import auth_bp
@@ -29,27 +31,50 @@ from users import users_bp
 from timetables import timetables_bp
 from friends import friends_bp
 from courses import courses_bp
+from pages import pages_bp
 from seed import seed
 
 # ── App & config ──────────────────────────────────────────────────────
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
-app = Flask(__name__)
+app = Flask(__name__)  # templates/ and static/ live inside back-end/ by convention
 app.config.update(
     SECRET_KEY                     = os.environ.get('SECRET_KEY', 'dev-secret-change-in-production'),
     SQLALCHEMY_DATABASE_URI        = f'sqlite:///{os.path.join(BASE_DIR, "planner.db")}',
     SQLALCHEMY_TRACK_MODIFICATIONS = False,
     JWT_SECRET_KEY                 = os.environ.get('JWT_SECRET_KEY', 'jwt-secret-key-change-in-production'),
     JWT_ACCESS_TOKEN_EXPIRES       = timedelta(days=7),
+    WTF_CSRF_TIME_LIMIT            = None,
 )
 
 db.init_app(app)
 jwt = JWTManager(app)
+csrf = CSRFProtect(app)
 app.register_blueprint(auth_bp)
 app.register_blueprint(users_bp)
 app.register_blueprint(timetables_bp)
 app.register_blueprint(friends_bp)
 app.register_blueprint(courses_bp)
+app.register_blueprint(pages_bp)
+
+# ── CSRF ──────────────────────────────────────────────────────────────
+_CSRF_EXEMPT = ('/api/auth/login', '/api/auth/register', '/api/health')
+
+@app.before_request
+def check_csrf():
+    if request.method not in ('POST', 'PUT', 'PATCH', 'DELETE'):
+        return
+    if any(request.path.startswith(p) for p in _CSRF_EXEMPT):
+        return
+    from flask_wtf.csrf import validate_csrf
+    try:
+        validate_csrf(request.headers.get('X-CSRF-Token', ''))
+    except Exception:
+        return err('CSRF validation failed', 400)
+
+@app.errorhandler(CSRFError)
+def csrf_error(_):
+    return err('CSRF validation failed', 400)
 
 # ── CORS ──────────────────────────────────────────────────────────────
 _ALLOWED_ORIGINS = {

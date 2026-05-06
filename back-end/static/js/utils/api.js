@@ -11,16 +11,23 @@ function getToken() {
   try { return JSON.parse(localStorage.getItem('uwa_planner_user'))?.token ?? null; } catch { return null; }
 }
 
+function getCsrfToken() {
+  return document.querySelector('meta[name="csrf-token"]')?.content ?? '';
+}
+
 async function request(path, options = {}) {
   const token   = getToken();
   const headers = { 'Content-Type': 'application/json', ...options.headers };
   if (token) headers['Authorization'] = `Bearer ${token}`;
+  if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(options.method?.toUpperCase())) {
+    headers['X-CSRF-Token'] = getCsrfToken();
+  }
   const res = await fetch(BASE_URL + path, { ...options, headers });
   if (!res.ok) {
     const body = await res.json().catch(() => ({ message: res.statusText }));
     if (res.status === 401 && token) {
       localStorage.removeItem('uwa_planner_user');
-      window.location.href = 'auth.html';
+      window.location.href = '/auth';
       return;
     }
     throw new Error(body.message || `Request failed (${res.status})`);

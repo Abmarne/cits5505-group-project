@@ -9,7 +9,7 @@ from flask_jwt_extended import get_jwt_identity, create_access_token
 from models import db, User
 
 BASE_DIR     = os.path.dirname(os.path.abspath(__file__))
-COURSES_PATH = os.path.join(BASE_DIR, '..', 'front-end', 'data', 'courses.json')
+COURSES_PATH = os.path.join(BASE_DIR, 'static', 'data', 'courses.json')
 
 _courses_cache = None
 

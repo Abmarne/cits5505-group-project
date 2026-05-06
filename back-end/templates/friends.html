@@ -1,16 +1,6 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Friends — UWA Planner</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=Instrument+Sans:ital,wght@0,300;0,400;0,500;1,300&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/tailwind-built.css">
-  <link rel="stylesheet" href="css/tokens.css">
-  <link rel="stylesheet" href="css/custom.css">
-</head>
-<body>
+{% extends "base.html" %}
+{% block title %}Friends — UWA Planner{% endblock %}
+{% block body %}
 
   <!-- Nav injected by js/utils/components.js -->
 
@@ -28,7 +18,7 @@
     <!-- Not logged in warning -->
     <div id="guestBanner" class="hidden mb-6 flex items-center gap-3 bg-[var(--amber-bg)] border border-[rgba(245,166,35,0.3)] rounded-lg px-5 py-4 text-[13px] text-[var(--amber)]">
       <span class="text-[18px]">⚠️</span>
-      <span>You need to <a href="auth.html" class="underline font-medium">log in</a> to add friends and see shared timetables.</span>
+      <span>You need to <a href="/auth" class="underline font-medium">log in</a> to add friends and see shared timetables.</span>
     </div>
 
     <!-- Two-column layout -->
@@ -91,7 +81,7 @@
         <div class="bg-[var(--bg2)] border border-[var(--border)] rounded-xl p-5">
           <div class="font-display text-[15px] font-bold text-[var(--text)] mb-1">Your timetable</div>
           <div class="text-[13px] text-[var(--text2)] mb-4">Manage sharing in the Schedule page.</div>
-          <a class="btn btn-sm w-full justify-center" href="schedule.html">Go to Schedule →</a>
+          <a class="btn btn-sm w-full justify-center" href="/schedule">Go to Schedule →</a>
         </div>
 
       </div>
@@ -141,6 +131,5 @@
     </div>
   </div>
 
-  <script type="module" src="js/friends.js"></script>
-</body>
-</html>
+  <script type="module" src="/static/js/friends.js"></script>
+{% endblock %}

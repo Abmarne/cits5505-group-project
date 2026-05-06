@@ -11,7 +11,7 @@ A web application that helps University of Western Australia students plan their
 - Add custom units with your own session times
 - Register with a UWA student email, manage profile and password
 
-**Stack** — Flask + SQLite + JWT (backend) · Static HTML/CSS/JS with Tailwind (frontend)
+**Stack** — Flask · SQLite · SQLAlchemy · JWT · Jinja2 · Flask-WTF (CSRF) · Tailwind CSS · Vanilla JS
 
 ---
 
@@ -31,41 +31,46 @@ A web application that helps University of Western Australia students plan their
 ```
 cits5505-group-project/
 ├── back-end/
-│   ├── app.py          # Flask app, CORS, error handlers, startup
-│   ├── auth.py         # /api/auth/*  /api/health
-│   ├── courses.py      # /api/courses
-│   ├── friends.py      # /api/friends  
-│   ├── timetables.py   # /api/timetables
-│   ├── users.py        # /api/profile  /
-│   ├── models.py       # SQLAlchemy models
-│   ├── utils.py        # Shared helpers
-│   ├── seed.py         # Demo data (auto-runs on startup)
-│   └── requirements.txt
-└── front-end/
-    ├── index.html      # Landing page
-    ├── auth.html       # Login / register
-    ├── courses.html    # Browse units
-    ├── schedule.html   # My schedule
-    ├── friends.html    # Friends
-    ├── profile.html    # Account settings
-    ├── css/
-    │   ├── tokens.css          # Design tokens (colours, spacing)
-    │   ├── custom.css          # Component styles
-    │   └── tailwind-built.css  # Compiled Tailwind (git-ignored)
-    ├── js/
-    │   ├── courses.js
-    │   ├── schedule.js
-    │   ├── friends.js
-    │   ├── profile.js
-    │   └── utils/
-    │       ├── api.js           # All API calls
-    │       ├── state.js         # Auth state + localStorage
-    │       ├── nav.js           # Nav injection + badges
-    │       ├── components.js    # Shared components
-    │       ├── schedule-utils.js
-    │       └── toast.js
-    └── data/
-        └── courses.json        # Unit catalogue
+│   ├── app.py            # Flask entry point — CORS, CSRF, blueprints, startup
+│   ├── pages.py          # Jinja page routes: /  /auth  /courses  /schedule  /friends  /profile
+│   ├── auth.py           # /api/health  /api/auth/*
+│   ├── users.py          # /api/profile  /api/users/*
+│   ├── timetables.py     # /api/timetables/*  (conflict detection, auto-schedule)
+│   ├── friends.py        # /api/friends/*
+│   ├── courses.py        # /api/courses/*
+│   ├── models.py         # SQLAlchemy models (User, Timetable, Friendship, …)
+│   ├── utils.py          # Shared helpers (current_user, ok, err, load_courses, …)
+│   ├── seed.py           # Demo data — runs automatically on every startup
+│   ├── requirements.txt
+│   ├── templates/        # Jinja2 templates (served at clean URLs by pages.py)
+│   │   ├── base.html     # Shared head: fonts, CSS, CSRF meta tag
+│   │   ├── index.html
+│   │   ├── auth.html
+│   │   ├── courses.html
+│   │   ├── schedule.html
+│   │   ├── friends.html
+│   │   └── profile.html
+│   └── static/           # Served at /static/ by Flask
+│       ├── css/
+│       │   ├── tokens.css        # Design tokens (colours, spacing, dark mode)
+│       │   └── custom.css        # Component styles
+│       ├── js/
+│       │   ├── home.js
+│       │   ├── auth.js
+│       │   ├── courses.js
+│       │   ├── schedule.js
+│       │   ├── friends.js
+│       │   ├── profile.js
+│       │   └── utils/
+│       │       ├── api.js            # All fetch calls — attaches JWT + CSRF headers
+│       │       ├── state.js          # Auth state + localStorage
+│       │       ├── nav.js            # Active-link highlighting
+│       │       ├── components.js     # Nav, sidebar, toast shell
+│       │       ├── schedule-utils.js
+│       │       └── toast.js
+│       └── data/
+│           └── courses.json          # UWA unit catalogue
+└── tests/
 ```
 
 ---
@@ -75,17 +80,14 @@ cits5505-group-project/
 | Tool | Minimum version |
 |------|----------------|
 | Python | 3.11 |
-| Node.js | 18 |
 
 ---
 
-## Setup and launch
+## Setup and run
 
-You need **two terminals** running simultaneously — one for the backend, one for the frontend.
+### Start Flask
 
-### Windows
-
-**Terminal 1 — Backend**
+**Windows**
 
 ```cmd
 cd back-end
@@ -97,26 +99,11 @@ venv\Scripts\activate
 :: Install dependencies (first time only)
 pip install -r requirements.txt
 
-:: Start the server (creates DB and seeds demo data automatically)
+:: Start the server
 python app.py
 ```
 
-**Terminal 2 — Frontend**
-
-```cmd
-cd front-end
-
-:: Install Tailwind and build CSS (first time only)
-npm install
-npm run build
-
-:: Serve the frontend
-python -m http.server 5500
-```
-
-### macOS / Linux
-
-**Terminal 1 — Backend**
+**macOS / Linux**
 
 ```bash
 cd back-end
@@ -128,27 +115,25 @@ source venv/bin/activate
 # Install dependencies (first time only)
 pip install -r requirements.txt
 
-# Start the server (creates DB and seeds demo data automatically)
+# Start the server
 python app.py
 ```
 
-**Terminal 2 — Frontend**
+Then open **http://localhost:5000** in your browser.
 
-```bash
-cd front-end
+Flask serves both the Jinja-rendered HTML pages and the JSON API. No separate frontend server is needed.
 
-# Install Tailwind and build CSS (first time only)
-npm install
-npm run build
+---
 
-# Serve the frontend
-python3 -m http.server 5500
-```
+## How it works
 
-Then open **http://localhost:5500** in your browser.
-
-> **Use `python -m http.server`, not VS Code Live Server.**
-> Live Server reloads the page every time Flask writes to the database.
+| Layer | Technology | Details |
+|-------|-----------|---------|
+| Pages | Jinja2 | `pages.py` renders HTML templates from `front-end/`. Every page inherits `base.html` which injects the CSRF token into a `<meta>` tag. |
+| API | Flask blueprints | REST JSON endpoints under `/api/` — protected with JWT Bearer tokens. |
+| CSRF | Flask-WTF | Token generated per session, embedded in `<meta name="csrf-token">`. All mutating fetch calls send it as `X-CSRF-Token`. |
+| Auth | flask-jwt-extended | 7-day access tokens stored in `localStorage`. |
+| Database | SQLAlchemy + SQLite | Auto-created and seeded with demo data on first run. |
 
 ---
 
@@ -158,24 +143,12 @@ All demo accounts use password `demo1234`.
 
 | Name | Student number | Notes |
 |------|---------------|-------|
-| Hung Nguyen | 21000001 | 2 timetables (S1 public, S2 private), friend with Alex and Jordan |
+| Hung Nguyen | 21000001 | 2 timetables (S1 public, S2 private), friends with Alex and Jordan |
 | Alex Smith | 21234567 | 1 public timetable (CS Focus) |
 | Jordan Lee | 21345678 | 2 public timetables |
 | Sam Chen | 21111111 | 2 private timetables, friend with Hung |
 | Riley Morgan | 21456789 | Pending request to Hung |
 | Casey Park | 21567890 | Pending request from Hung |
-
----
-
-## Rebuilding CSS
-
-The compiled Tailwind file (`front-end/css/tailwind-built.css`) is not tracked in git. Run after cloning or when adding new Tailwind classes:
-
-```bash
-cd front-end
-npm run build     # one-off build
-npm run watch     # watch mode while developing
-```
 
 ---
 

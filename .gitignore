@@ -208,10 +208,6 @@ __marimo__/
 
 # Node
 node_modules/
-front-end/node_modules/
 
 # SQLite database
 back-end/planner.db
-
-# Tailwind compiled output (regenerate with: cd front-end && npm run build)
-front-end/css/tailwind-built.css

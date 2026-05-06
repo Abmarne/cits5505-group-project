@@ -23,7 +23,7 @@ let modalTimetables = [];   // all public timetables for currently open friend
 let modalActiveIdx  = 0;
 
 document.addEventListener('DOMContentLoaded', async () => {
-  if (!State.getUser()) { window.location.href = 'auth.html'; return; }
+  if (!State.getUser()) { window.location.href = '/auth'; return; }
 
   try {
     [allCourses, friends, pendingRequests, sentRequests] = await Promise.all([
